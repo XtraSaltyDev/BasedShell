@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:5173"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LocalTerminal</title>
+  </head>
+  <body>
+    <div id="app-shell">
+      <header id="topbar" aria-label="Terminal tabs and controls">
+        <div id="tab-strip" role="tablist" aria-label="Terminal tabs"></div>
+        <div id="topbar-controls">
+          <button id="new-tab-button" class="icon-button" title="New tab (Cmd/Ctrl+T)" aria-label="New tab">+</button>
+          <button id="settings-button" class="icon-button" title="Settings (Cmd/Ctrl+,)" aria-label="Open settings">⚙</button>
+        </div>
+      </header>
+
+      <main id="terminal-host" aria-live="polite"></main>
+
+      <footer id="statusbar">
+        <span id="status-left">Ready</span>
+        <span id="status-right"></span>
+      </footer>
+    </div>
+
+    <div id="search-panel" class="overlay hidden" role="dialog" aria-modal="false" aria-label="Search terminal output">
+      <input id="search-input" type="text" placeholder="Find in terminal" />
+      <label class="checkbox-wrap">
+        <input id="search-case-sensitive" type="checkbox" />
+        Case sensitive
+      </label>
+      <button id="search-prev">Prev</button>
+      <button id="search-next">Next</button>
+      <button id="search-close">Close</button>
+    </div>
+
+    <dialog id="settings-dialog" aria-label="Terminal settings">
+      <form id="settings-form" method="dialog">
+        <h2>Terminal Settings</h2>
+
+        <label>
+          Font family
+          <input id="setting-font-family" type="text" />
+        </label>
+
+        <label>
+          Font size
+          <input id="setting-font-size" type="number" min="10" max="28" step="1" />
+        </label>
+
+        <label>
+          Line height
+          <input id="setting-line-height" type="number" min="1" max="2" step="0.05" />
+        </label>
+
+        <label>
+          Scrollback lines
+          <input id="setting-scrollback" type="number" min="1000" max="200000" step="1000" />
+        </label>
+
+        <label>
+          Background opacity
+          <input id="setting-opacity" type="number" min="0.6" max="1" step="0.01" />
+        </label>
+
+        <label>
+          Theme
+          <select id="setting-theme">
+            <option value="graphite">Graphite</option>
+            <option value="midnight">Midnight</option>
+            <option value="solarized-dark">Solarized Dark</option>
+            <option value="paper">Paper</option>
+          </select>
+        </label>
+
+        <label>
+          Cursor style
+          <select id="setting-cursor-style">
+            <option value="block">Block</option>
+            <option value="bar">Bar</option>
+            <option value="underline">Underline</option>
+          </select>
+        </label>
+
+        <label class="checkbox-wrap">
+          <input id="setting-cursor-blink" type="checkbox" />
+          Cursor blink
+        </label>
+
+        <menu>
+          <button id="settings-cancel" type="reset">Cancel</button>
+          <button id="settings-save" type="submit">Save</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
