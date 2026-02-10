@@ -3,3 +3,28 @@ node_modules
 dist
 release
 npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# TypeScript build artifacts
+*.tsbuildinfo
+
+# Test/coverage output
+coverage
+.nyc_output
+
+# Env and local-only files
+.env
+.env.local
+.env.*.local
+
+# IDE/editor noise
+.vscode
+.idea
+*.swp
+*.swo
+
+# macOS metadata
+._*
