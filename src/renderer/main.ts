@@ -13,6 +13,7 @@ import type {
   ThemeSelection
 } from '../shared/types';
 import { applyThemeChrome, resolveThemeState, type ResolvedThemeState } from './themes';
+import { icon } from './icons';
 import './tokens.css';
 import './styles.css';
 
@@ -27,6 +28,9 @@ interface TabState {
   search: SearchAddon;
   container: HTMLDivElement;
   exited: boolean;
+  hasUnreadOutput: boolean;
+  hasRecentOutput: boolean;
+  outputPulseTimer?: ReturnType<typeof setTimeout>;
 }
 
 const dom = {
@@ -63,6 +67,7 @@ const tabs = new Map<string, TabState>();
 let tabOrder: string[] = [];
 let activeTabId = '';
 let tabCount = 0;
+const tabRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function assertDom<T>(value: T | null, id: string): T {
   if (!value) {
@@ -173,40 +178,166 @@ function tabBySessionId(sessionId: string): TabState | undefined {
   return undefined;
 }
 
-function renderTabStrip(): void {
-  ui.tabStrip.textContent = '';
+function updateTabStripOverflow(): void {
+  const epsilon = 1;
+  const hasLeft = ui.tabStrip.scrollLeft > epsilon;
+  const hasRight = ui.tabStrip.scrollLeft + ui.tabStrip.clientWidth < ui.tabStrip.scrollWidth - epsilon;
+  ui.tabStrip.classList.toggle('overflow-left', hasLeft);
+  ui.tabStrip.classList.toggle('overflow-right', hasRight);
+}
 
+function updateTabWidthClass(): void {
+  ui.tabStrip.classList.remove('tab-size-regular', 'tab-size-compact', 'tab-size-dense');
+  if (tabOrder.length >= 11) {
+    ui.tabStrip.classList.add('tab-size-dense');
+    return;
+  }
+
+  if (tabOrder.length >= 6) {
+    ui.tabStrip.classList.add('tab-size-compact');
+    return;
+  }
+
+  ui.tabStrip.classList.add('tab-size-regular');
+}
+
+function createTabElement(tabId: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tab';
+  button.dataset.tabId = tabId;
+  button.setAttribute('role', 'tab');
+  button.id = `tab-${tabId}`;
+
+  const dot = document.createElement('span');
+  dot.className = 'tab-indicator-dot';
+  dot.setAttribute('aria-hidden', 'true');
+
+  const title = document.createElement('span');
+  title.className = 'tab-title';
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'tab-close';
+  close.title = 'Close tab';
+  close.setAttribute('aria-label', 'Close tab');
+  close.innerHTML = icon('close', 12);
+
+  button.addEventListener('click', () => activateTab(tabId));
+  close.addEventListener('click', (event) => {
+    event.stopPropagation();
+    void closeTab(tabId);
+  });
+
+  button.append(dot, title, close);
+  return button;
+}
+
+function updateTabElement(element: HTMLButtonElement, tab: TabState, isActive: boolean): void {
+  element.classList.toggle('active', isActive);
+  element.classList.toggle('exit', tab.exited);
+  element.setAttribute('aria-selected', String(isActive));
+  element.setAttribute('aria-controls', `panel-${tab.id}`);
+
+  const title = element.querySelector<HTMLSpanElement>('.tab-title');
+  if (title && title.textContent !== tab.title) {
+    title.textContent = tab.title;
+  }
+
+  const dot = element.querySelector<HTMLSpanElement>('.tab-indicator-dot');
+  if (dot) {
+    dot.classList.remove('active', 'unread', 'exited');
+    if (tab.exited) {
+      dot.classList.add('exited');
+    } else if (tab.hasUnreadOutput) {
+      dot.classList.add('unread');
+    } else if (tab.hasRecentOutput) {
+      dot.classList.add('active');
+    }
+  }
+}
+
+function startTabExitAnimation(tabId: string, element: HTMLElement): void {
+  if (element.classList.contains('tab-exiting')) {
+    return;
+  }
+
+  element.classList.add('tab-exiting');
+  const remove = () => {
+    const timer = tabRemovalTimers.get(tabId);
+    if (timer) {
+      clearTimeout(timer);
+      tabRemovalTimers.delete(tabId);
+    }
+
+    if (element.parentElement) {
+      element.remove();
+      updateTabStripOverflow();
+    }
+  };
+
+  element.addEventListener('animationend', remove, { once: true });
+  const timer = setTimeout(remove, 260);
+  tabRemovalTimers.set(tabId, timer);
+}
+
+function renderTabStrip(): void {
+  updateTabWidthClass();
+
+  const existingTabs = new Map<string, HTMLButtonElement>();
+  for (const child of Array.from(ui.tabStrip.children)) {
+    const element = child as HTMLButtonElement;
+    const id = element.dataset.tabId;
+    if (id) {
+      existingTabs.set(id, element);
+    }
+  }
+
+  for (const [id, element] of existingTabs.entries()) {
+    if (!tabs.has(id)) {
+      startTabExitAnimation(id, element);
+      existingTabs.delete(id);
+    }
+  }
+
+  let previousElement: HTMLButtonElement | null = null;
   for (const tabId of tabOrder) {
     const tab = tabs.get(tabId);
     if (!tab) {
       continue;
     }
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `tab${tabId === activeTabId ? ' active' : ''}${tab.exited ? ' exit' : ''}`;
-    button.setAttribute('role', 'tab');
-    button.setAttribute('aria-selected', String(tabId === activeTabId));
+    let element = existingTabs.get(tabId);
+    if (!element) {
+      element = createTabElement(tabId);
+      element.classList.add('tab-entering');
+      element.addEventListener(
+        'animationend',
+        () => {
+          element?.classList.remove('tab-entering');
+          updateTabStripOverflow();
+        },
+        { once: true }
+      );
+    }
 
-    const title = document.createElement('span');
-    title.className = 'tab-title';
-    title.textContent = tab.title;
+    updateTabElement(element, tab, tabId === activeTabId);
 
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.className = 'tab-close';
-    close.textContent = '×';
-    close.title = 'Close tab';
+    const expectedNext: Element | null = previousElement
+      ? previousElement.nextElementSibling
+      : ui.tabStrip.firstElementChild;
+    if (element !== expectedNext) {
+      if (previousElement) {
+        previousElement.after(element);
+      } else {
+        ui.tabStrip.prepend(element);
+      }
+    }
 
-    button.addEventListener('click', () => activateTab(tabId));
-    close.addEventListener('click', (event) => {
-      event.stopPropagation();
-      void closeTab(tabId);
-    });
-
-    button.append(title, close);
-    ui.tabStrip.appendChild(button);
+    previousElement = element;
   }
+
+  updateTabStripOverflow();
 }
 
 function updateStatus(): void {
@@ -226,11 +357,13 @@ function updateStatus(): void {
 }
 
 function activateTab(tabId: string): void {
-  if (!tabs.has(tabId)) {
+  const target = tabs.get(tabId);
+  if (!target) {
     return;
   }
 
   activeTabId = tabId;
+  target.hasUnreadOutput = false;
 
   for (const [currentId, tab] of tabs.entries()) {
     tab.container.classList.toggle('active', currentId === tabId);
@@ -250,9 +383,60 @@ function activateTab(tabId: string): void {
   }
 }
 
+function clearOutputPulse(tab: TabState): void {
+  if (tab.outputPulseTimer) {
+    clearTimeout(tab.outputPulseTimer);
+    tab.outputPulseTimer = undefined;
+  }
+
+  if (tab.hasRecentOutput) {
+    tab.hasRecentOutput = false;
+    renderTabStrip();
+  }
+}
+
+function markTabOutput(tab: TabState): void {
+  if (tab.exited) {
+    return;
+  }
+
+  if (tab.id === activeTabId) {
+    const shouldRender = !tab.hasRecentOutput;
+    tab.hasRecentOutput = true;
+    if (tab.outputPulseTimer) {
+      clearTimeout(tab.outputPulseTimer);
+    }
+
+    tab.outputPulseTimer = setTimeout(() => {
+      tab.outputPulseTimer = undefined;
+      if (!tab.hasRecentOutput) {
+        return;
+      }
+
+      tab.hasRecentOutput = false;
+      renderTabStrip();
+    }, 1200);
+
+    if (shouldRender) {
+      renderTabStrip();
+    }
+
+    return;
+  }
+
+  if (!tab.hasUnreadOutput) {
+    tab.hasUnreadOutput = true;
+    renderTabStrip();
+  }
+}
+
 async function createTab(): Promise<void> {
+  const tabId = crypto.randomUUID();
   const container = document.createElement('div');
   container.className = 'terminal-pane';
+  container.id = `panel-${tabId}`;
+  container.setAttribute('role', 'tabpanel');
+  container.setAttribute('aria-labelledby', `tab-${tabId}`);
   ui.terminalHost.appendChild(container);
 
   const term = new Terminal(terminalOptions());
@@ -278,7 +462,6 @@ async function createTab(): Promise<void> {
     return;
   }
 
-  const tabId = crypto.randomUUID();
   const title = nextTabLabel();
   const tab: TabState = {
     id: tabId,
@@ -290,7 +473,9 @@ async function createTab(): Promise<void> {
     fit,
     search,
     container,
-    exited: false
+    exited: false,
+    hasUnreadOutput: false,
+    hasRecentOutput: false
   };
 
   tabs.set(tabId, tab);
@@ -331,6 +516,7 @@ async function closeTab(tabId: string): Promise<void> {
     return;
   }
 
+  clearOutputPulse(tab);
   window.terminalAPI.closeSession(tab.sessionId);
   tab.term.dispose();
   tab.container.remove();
@@ -496,7 +682,12 @@ function bindMenuActions(): void {
 function bindSessionEvents(): void {
   window.terminalAPI.onSessionData(({ sessionId, data }) => {
     const tab = tabBySessionId(sessionId);
-    tab?.term.write(data);
+    if (!tab) {
+      return;
+    }
+
+    tab.term.write(data);
+    markTabOutput(tab);
   });
 
   window.terminalAPI.onSessionExit(({ sessionId, exitCode }) => {
@@ -506,6 +697,8 @@ function bindSessionEvents(): void {
     }
 
     tab.exited = true;
+    tab.hasUnreadOutput = false;
+    clearOutputPulse(tab);
     tab.term.writeln(`\r\n\x1b[31m[process exited with code ${exitCode}]\x1b[0m`);
     renderTabStrip();
     updateStatus();
@@ -519,6 +712,11 @@ function bindSystemAppearanceEvents(): void {
     renderTabStrip();
     updateStatus();
   });
+}
+
+function applyStaticIcons(): void {
+  ui.newTabButton.innerHTML = icon('plus', 14);
+  ui.settingsButton.innerHTML = icon('gear', 14);
 }
 
 function bindKeyboardShortcuts(): void {
@@ -638,6 +836,10 @@ function bindUI(): void {
     ui.settingsDialog.close();
   });
 
+  ui.tabStrip.addEventListener('scroll', () => {
+    updateTabStripOverflow();
+  });
+
   let resizeTimer: ReturnType<typeof setTimeout> | undefined;
   window.addEventListener('resize', () => {
     if (resizeTimer) {
@@ -656,6 +858,7 @@ function bindUI(): void {
         cols: tab.term.cols,
         rows: tab.term.rows
       });
+      updateTabStripOverflow();
     }, 60);
   });
 }
@@ -664,6 +867,7 @@ async function boot(): Promise<void> {
   systemAppearance = await window.terminalAPI.getSystemAppearance();
   settings = await window.terminalAPI.getSettings();
   applySettingsToAllTabs();
+  applyStaticIcons();
   bindUI();
   bindKeyboardShortcuts();
   bindMenuActions();

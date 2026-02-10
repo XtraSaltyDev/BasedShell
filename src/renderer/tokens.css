@@ -148,17 +148,17 @@
   --ease-responsive: cubic-bezier(0, 0, 0.2, 1);
 
   /* Size/layout tokens */
-  --size-topbar-height: 48px;
+  --size-topbar-height: 44px;
   --size-statusbar-height: 28px;
-  --size-tab-height: 30px;
-  --size-tab-min-width: 120px;
-  --size-tab-max-width: 280px;
+  --size-tab-height: 32px;
+  --size-tab-min-width: 100px;
+  --size-tab-max-width: 220px;
   --size-tab-min-width-compact: 100px;
   --size-tab-max-width-compact: 180px;
   --size-icon-button: 30px;
   --size-tab-close: 18px;
   --size-overlay-top: 58px;
-  --size-topbar-padding-left: 86px;
+  --size-topbar-padding-left: 80px;
   --size-topbar-padding-left-compact: 76px;
   --size-dialog-max-width: 460px;
   --size-control-padding-y: 6px;
