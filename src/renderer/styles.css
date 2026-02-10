@@ -352,6 +352,21 @@ select:focus {
     box-shadow var(--duration-fast) var(--ease-standard);
 }
 
+[data-vibrancy='true'] body {
+  background:
+    radial-gradient(ellipse at 15% -5%, color-mix(in srgb, var(--color-bg-elevated) 60%, transparent) 0%, transparent 40%),
+    radial-gradient(ellipse at 95% 5%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 35%),
+    color-mix(in srgb, var(--color-bg-base) 75%, transparent);
+}
+
+[data-vibrancy='true'] #topbar {
+  background: color-mix(in srgb, var(--color-bg-elevated) 65%, transparent);
+}
+
+[data-vibrancy='true'] #statusbar {
+  background: color-mix(in srgb, var(--statusbar-bg) 70%, transparent);
+}
+
 @media (max-width: 860px) {
   #topbar {
     padding-left: var(--size-topbar-padding-left-compact);

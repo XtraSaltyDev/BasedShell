@@ -70,10 +70,23 @@
         <label>
           Theme
           <select id="setting-theme">
+            <option value="system">System</option>
             <option value="graphite">Graphite</option>
             <option value="midnight">Midnight</option>
             <option value="solarized-dark">Solarized Dark</option>
             <option value="paper">Paper</option>
+            <option value="aurora">Aurora</option>
+            <option value="noir">Noir</option>
+            <option value="fog">Fog</option>
+          </select>
+        </label>
+
+        <label>
+          Appearance
+          <select id="setting-appearance">
+            <option value="system">System</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
           </select>
         </label>
 
@@ -84,6 +97,11 @@
             <option value="bar">Bar</option>
             <option value="underline">Underline</option>
           </select>
+        </label>
+
+        <label class="checkbox-wrap">
+          <input id="setting-vibrancy" type="checkbox" />
+          Vibrancy (macOS)
         </label>
 
         <label class="checkbox-wrap">

@@ -1,6 +1,90 @@
-export type ThemeName = 'graphite' | 'midnight' | 'solarized-dark' | 'paper';
+export type ThemeName = 'graphite' | 'midnight' | 'solarized-dark' | 'paper' | 'aurora' | 'noir' | 'fog';
+
+export type ThemeSelection = ThemeName | 'system';
+
+export type AppearanceMode = 'light' | 'dark';
+
+export type AppearancePreference = 'system' | AppearanceMode;
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
+
+export interface TerminalAnsiTheme {
+  background: string;
+  foreground: string;
+  cursor: string;
+  selectionBackground: string;
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
+}
+
+export interface ThemeChrome {
+  bgBase: string;
+  bgSurface: string;
+  bgElevated: string;
+  bgOverlay: string;
+  bgInset: string;
+  borderDefault: string;
+  borderSubtle: string;
+  borderStrong: string;
+  borderAccent: string;
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  textDisabled: string;
+  textInverse: string;
+  accent: string;
+  accentHover: string;
+  accentMuted: string;
+  accentSubtle: string;
+  danger: string;
+  dangerHover: string;
+  dangerMuted: string;
+  warning: string;
+  info: string;
+  success: string;
+  focusRing: string;
+  topbarBg: string;
+  statusbarBg: string;
+  statusbarFg: string;
+  panelBg: string;
+  panelBorder: string;
+  searchBg: string;
+  searchBorder: string;
+  inputBg: string;
+  inputBorder: string;
+  inputFg: string;
+  inputPlaceholder: string;
+  tabBgIdle: string;
+  tabBgActive: string;
+  tabBgHover: string;
+  tabFgIdle: string;
+  tabFgActive: string;
+  tabBorderIdle: string;
+  tabBorderActive: string;
+  tabIndicator: string;
+}
+
+export interface FullTheme {
+  terminal: TerminalAnsiTheme;
+  chrome: ThemeChrome;
+  electronBgColor: string;
+  appearance: AppearanceMode;
+  vibrancy?: 'under-window';
+}
 
 export interface TerminalProfile {
   id: string;
@@ -19,7 +103,9 @@ export interface AppSettings {
   cursorBlink: boolean;
   scrollback: number;
   backgroundOpacity: number;
-  theme: ThemeName;
+  theme: ThemeSelection;
+  appearancePreference: AppearancePreference;
+  vibrancy: boolean;
   profiles: TerminalProfile[];
   defaultProfileId: string;
 }
@@ -56,6 +142,10 @@ export interface SessionExitEvent {
   sessionId: string;
   exitCode: number;
   signal?: number;
+}
+
+export interface SystemAppearanceEvent {
+  appearance: AppearanceMode;
 }
 
 export interface SessionWriteRequest {
