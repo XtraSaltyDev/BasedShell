@@ -1,9 +1,26 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AppSettings, CursorStyle, SettingsPatch, TerminalProfile } from '../shared/types';
+import type {
+  AppSettings,
+  AppearancePreference,
+  CursorStyle,
+  SettingsPatch,
+  TerminalProfile,
+  ThemeSelection
+} from '../shared/types';
 import { JsonStore } from './storage';
 
-const THEMES = new Set(['graphite', 'midnight', 'solarized-dark', 'paper']);
+const THEMES = new Set<ThemeSelection>([
+  'system',
+  'graphite',
+  'midnight',
+  'solarized-dark',
+  'paper',
+  'aurora',
+  'noir',
+  'fog'
+]);
+const APPEARANCE_PREFERENCES = new Set<AppearancePreference>(['system', 'dark', 'light']);
 const CURSORS = new Set<CursorStyle>(['block', 'underline', 'bar']);
 
 function clamp(value: number, min: number, max: number): number {
@@ -58,6 +75,8 @@ export class SettingsService {
       scrollback: 20000,
       backgroundOpacity: 0.92,
       theme: 'graphite',
+      appearancePreference: 'system',
+      vibrancy: false,
       profiles: [
         {
           id: 'default',
@@ -169,6 +188,10 @@ export class SettingsService {
       scrollback: Math.round(clamp(Number(candidate.scrollback) || 20000, 1000, 200000)),
       backgroundOpacity: clamp(Number(candidate.backgroundOpacity) || 0.92, 0.6, 1),
       theme: THEMES.has(candidate.theme) ? candidate.theme : 'graphite',
+      appearancePreference: APPEARANCE_PREFERENCES.has(candidate.appearancePreference)
+        ? candidate.appearancePreference
+        : 'system',
+      vibrancy: Boolean(candidate.vibrancy),
       profiles: dedupedProfiles,
       defaultProfileId
     };

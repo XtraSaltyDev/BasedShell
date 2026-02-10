@@ -1,12 +1,16 @@
 import path from 'node:path';
-import { app, BrowserWindow, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from 'electron';
 import type {
+  AppearanceMode,
+  AppSettings,
   CreateSessionRequest,
   SessionResizeRequest,
   SessionWriteRequest,
+  SystemAppearanceEvent,
   SettingsPatch,
   WindowState
 } from '../shared/types';
+import { resolveAppearance, resolveThemeName, THEME_META } from '../shared/theme-meta';
 import { createAppMenu } from './menu';
 import { SessionManager } from './session-manager';
 import { SettingsService } from './settings';
@@ -29,8 +33,30 @@ function getWindowStateStore(): JsonStore<WindowState> {
   return windowStateStore;
 }
 
-function createMainWindow(): BrowserWindow {
+function getSystemAppearance(): AppearanceMode {
+  return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+}
+
+function resolveWindowBackground(settings: AppSettings): string {
+  const appearance = resolveAppearance(settings.appearancePreference, getSystemAppearance());
+  const themeName = resolveThemeName(settings.theme, appearance);
+  const themeMeta = THEME_META[themeName];
+  return themeMeta.electronBgColor;
+}
+
+function applyWindowTheme(window: BrowserWindow, settings: AppSettings): void {
+  const backgroundColor = settings.vibrancy ? '#00000000' : resolveWindowBackground(settings);
+  window.setBackgroundColor(backgroundColor);
+
+  if (process.platform === 'darwin') {
+    window.setVibrancy(settings.vibrancy ? 'under-window' : null);
+  }
+}
+
+function createMainWindow(settings: AppSettings): BrowserWindow {
   const state = getWindowStateStore().read();
+  const backgroundColor = settings.vibrancy ? '#00000000' : resolveWindowBackground(settings);
+  const useVibrancy = process.platform === 'darwin' && settings.vibrancy;
 
   const window = new BrowserWindow({
     width: state.width,
@@ -40,7 +66,10 @@ function createMainWindow(): BrowserWindow {
     minWidth: 960,
     minHeight: 600,
     title: 'LocalTerminal',
-    backgroundColor: '#111317',
+    backgroundColor,
+    transparent: useVibrancy,
+    vibrancy: useVibrancy ? 'under-window' : undefined,
+    visualEffectState: useVibrancy ? 'active' : undefined,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: process.platform === 'darwin' ? { x: 14, y: 14 } : undefined,
     webPreferences: {
@@ -84,6 +113,7 @@ function createMainWindow(): BrowserWindow {
 
 function registerIpcHandlers(): void {
   ipcMain.handle('app:get-version', () => app.getVersion());
+  ipcMain.handle('system:get-appearance', () => getSystemAppearance());
 
   ipcMain.handle('settings:get', () => {
     if (!settingsService) {
@@ -98,7 +128,12 @@ function registerIpcHandlers(): void {
       throw new Error('Settings unavailable');
     }
 
-    return settingsService.update(patch);
+    const next = settingsService.update(patch);
+    if (mainWindow) {
+      applyWindowTheme(mainWindow, next);
+    }
+
+    return next;
   });
 
   ipcMain.handle('terminal:create-session', (_, request: CreateSessionRequest) => {
@@ -124,7 +159,7 @@ function registerIpcHandlers(): void {
 
 function setupApp(): void {
   settingsService = new SettingsService(app.getPath('userData'));
-  mainWindow = createMainWindow();
+  mainWindow = createMainWindow(settingsService.get());
 
   sessionManager = new SessionManager(settingsService, () => mainWindow);
 
@@ -158,6 +193,18 @@ function initialize(): void {
   app.whenReady().then(() => {
     registerIpcHandlers();
     setupApp();
+    nativeTheme.on('updated', () => {
+      if (!mainWindow || !settingsService) {
+        return;
+      }
+
+      applyWindowTheme(mainWindow, settingsService.get());
+
+      const payload: SystemAppearanceEvent = {
+        appearance: getSystemAppearance()
+      };
+      mainWindow.webContents.send('system:appearance-changed', payload);
+    });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

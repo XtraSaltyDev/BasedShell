@@ -5,12 +5,14 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import type {
   AppSettings,
+  AppearanceMode,
   CursorStyle,
   MenuAction,
   SessionSummary,
   SettingsPatch,
-  ThemeName
+  ThemeSelection
 } from '../shared/types';
+import { applyThemeChrome, resolveThemeState, type ResolvedThemeState } from './themes';
 import './tokens.css';
 import './styles.css';
 
@@ -26,97 +28,6 @@ interface TabState {
   container: HTMLDivElement;
   exited: boolean;
 }
-
-const themeMap: Record<ThemeName, NonNullable<ITerminalOptions['theme']>> = {
-  graphite: {
-    background: '#101319',
-    foreground: '#dce3f2',
-    cursor: '#6fd3af',
-    selectionBackground: '#324154',
-    black: '#191d27',
-    red: '#ec7890',
-    green: '#7cd3a6',
-    yellow: '#f4d68c',
-    blue: '#75a7f0',
-    magenta: '#b89bf6',
-    cyan: '#72d4e5',
-    white: '#eaf0ff',
-    brightBlack: '#4d586e',
-    brightRed: '#ff9bb0',
-    brightGreen: '#97ecc0',
-    brightYellow: '#ffe6ad',
-    brightBlue: '#94bbff',
-    brightMagenta: '#cab3ff',
-    brightCyan: '#94ecfc',
-    brightWhite: '#ffffff'
-  },
-  midnight: {
-    background: '#090d16',
-    foreground: '#cfe5ff',
-    cursor: '#7ae0ff',
-    selectionBackground: '#2f496e',
-    black: '#111826',
-    red: '#ff7892',
-    green: '#6de0a0',
-    yellow: '#f8d66c',
-    blue: '#71a0ff',
-    magenta: '#b193ff',
-    cyan: '#68d5ff',
-    white: '#dce6ff',
-    brightBlack: '#3f5375',
-    brightRed: '#ff9ab0',
-    brightGreen: '#95f5bd',
-    brightYellow: '#ffe892',
-    brightBlue: '#9ebfff',
-    brightMagenta: '#c9b3ff',
-    brightCyan: '#9decff',
-    brightWhite: '#ffffff'
-  },
-  'solarized-dark': {
-    background: '#002b36',
-    foreground: '#93a1a1',
-    cursor: '#93a1a1',
-    selectionBackground: '#194550',
-    black: '#073642',
-    red: '#dc322f',
-    green: '#859900',
-    yellow: '#b58900',
-    blue: '#268bd2',
-    magenta: '#d33682',
-    cyan: '#2aa198',
-    white: '#eee8d5',
-    brightBlack: '#586e75',
-    brightRed: '#cb4b16',
-    brightGreen: '#586e75',
-    brightYellow: '#657b83',
-    brightBlue: '#839496',
-    brightMagenta: '#6c71c4',
-    brightCyan: '#93a1a1',
-    brightWhite: '#fdf6e3'
-  },
-  paper: {
-    background: '#f6f3ea',
-    foreground: '#2d2b28',
-    cursor: '#4e5551',
-    selectionBackground: '#d6e0e5',
-    black: '#1f1d1b',
-    red: '#b5434a',
-    green: '#5f7f4b',
-    yellow: '#9a7b3e',
-    blue: '#406d92',
-    magenta: '#88649e',
-    cyan: '#3e8588',
-    white: '#f6f3ea',
-    brightBlack: '#77716a',
-    brightRed: '#cb6971',
-    brightGreen: '#7b9a64',
-    brightYellow: '#b49355',
-    brightBlue: '#688eb0',
-    brightMagenta: '#a286b8',
-    brightCyan: '#64a2a5',
-    brightWhite: '#fffef8'
-  }
-};
 
 const dom = {
   tabStrip: document.querySelector<HTMLDivElement>('#tab-strip'),
@@ -139,11 +50,15 @@ const dom = {
   settingScrollback: document.querySelector<HTMLInputElement>('#setting-scrollback'),
   settingOpacity: document.querySelector<HTMLInputElement>('#setting-opacity'),
   settingTheme: document.querySelector<HTMLSelectElement>('#setting-theme'),
+  settingAppearance: document.querySelector<HTMLSelectElement>('#setting-appearance'),
   settingCursorStyle: document.querySelector<HTMLSelectElement>('#setting-cursor-style'),
-  settingCursorBlink: document.querySelector<HTMLInputElement>('#setting-cursor-blink')
+  settingCursorBlink: document.querySelector<HTMLInputElement>('#setting-cursor-blink'),
+  settingVibrancy: document.querySelector<HTMLInputElement>('#setting-vibrancy')
 };
 
 let settings: AppSettings;
+let systemAppearance: AppearanceMode = 'dark';
+let resolvedTheme: ResolvedThemeState;
 const tabs = new Map<string, TabState>();
 let tabOrder: string[] = [];
 let activeTabId = '';
@@ -178,8 +93,10 @@ const ui = {
   settingScrollback: assertDom(dom.settingScrollback, '#setting-scrollback'),
   settingOpacity: assertDom(dom.settingOpacity, '#setting-opacity'),
   settingTheme: assertDom(dom.settingTheme, '#setting-theme'),
+  settingAppearance: assertDom(dom.settingAppearance, '#setting-appearance'),
   settingCursorStyle: assertDom(dom.settingCursorStyle, '#setting-cursor-style'),
-  settingCursorBlink: assertDom(dom.settingCursorBlink, '#setting-cursor-blink')
+  settingCursorBlink: assertDom(dom.settingCursorBlink, '#setting-cursor-blink'),
+  settingVibrancy: assertDom(dom.settingVibrancy, '#setting-vibrancy')
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -195,6 +112,15 @@ function setSurfaceOpacity(opacity: number): void {
   document.documentElement.style.setProperty('--surface-opacity', opacity.toFixed(2));
 }
 
+function refreshResolvedTheme(): void {
+  resolvedTheme = resolveThemeState(settings, systemAppearance);
+}
+
+function applyThemeState(): void {
+  refreshResolvedTheme();
+  applyThemeChrome(resolvedTheme, settings.vibrancy);
+}
+
 function terminalOptions(): ITerminalOptions {
   return {
     fontFamily: settings.fontFamily,
@@ -203,7 +129,7 @@ function terminalOptions(): ITerminalOptions {
     cursorStyle: settings.cursorStyle,
     cursorBlink: settings.cursorBlink,
     scrollback: settings.scrollback,
-    theme: themeMap[settings.theme],
+    theme: resolvedTheme.theme.terminal,
     allowTransparency: true,
     convertEol: false,
     rightClickSelectsWord: true,
@@ -218,7 +144,7 @@ function applyTabSettings(tab: TabState): void {
   tab.term.options.cursorStyle = settings.cursorStyle;
   tab.term.options.cursorBlink = settings.cursorBlink;
   tab.term.options.scrollback = settings.scrollback;
-  tab.term.options.theme = themeMap[settings.theme];
+  tab.term.options.theme = resolvedTheme.theme.terminal;
   tab.fit.fit();
   window.terminalAPI.resizeSession({
     sessionId: tab.sessionId,
@@ -228,6 +154,7 @@ function applyTabSettings(tab: TabState): void {
 }
 
 function applySettingsToAllTabs(): void {
+  applyThemeState();
   setSurfaceOpacity(settings.backgroundOpacity);
 
   for (const tab of tabs.values()) {
@@ -293,7 +220,9 @@ function updateStatus(): void {
   ui.statusLeft.textContent = active.exited
     ? `Exited · ${active.shell}`
     : `${active.shell} · PID ${active.pid}`;
-  ui.statusRight.textContent = `${tabOrder.length} tab${tabOrder.length === 1 ? '' : 's'} · ${settings.theme}`;
+  const themeLabel =
+    settings.theme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName;
+  ui.statusRight.textContent = `${tabOrder.length} tab${tabOrder.length === 1 ? '' : 's'} · ${themeLabel}`;
 }
 
 function activateTab(tabId: string): void {
@@ -470,8 +399,10 @@ function syncSettingsDialog(): void {
   ui.settingScrollback.value = String(settings.scrollback);
   ui.settingOpacity.value = String(settings.backgroundOpacity);
   ui.settingTheme.value = settings.theme;
+  ui.settingAppearance.value = settings.appearancePreference;
   ui.settingCursorStyle.value = settings.cursorStyle;
   ui.settingCursorBlink.checked = settings.cursorBlink;
+  ui.settingVibrancy.checked = settings.vibrancy;
 }
 
 function openSettings(): void {
@@ -486,9 +417,11 @@ async function saveSettingsFromForm(): Promise<void> {
     lineHeight: Number(ui.settingLineHeight.value),
     scrollback: Number(ui.settingScrollback.value),
     backgroundOpacity: Number(ui.settingOpacity.value),
-    theme: ui.settingTheme.value as ThemeName,
+    theme: ui.settingTheme.value as ThemeSelection,
+    appearancePreference: ui.settingAppearance.value as AppSettings['appearancePreference'],
     cursorStyle: ui.settingCursorStyle.value as CursorStyle,
-    cursorBlink: ui.settingCursorBlink.checked
+    cursorBlink: ui.settingCursorBlink.checked,
+    vibrancy: ui.settingVibrancy.checked
   };
 
   settings = await window.terminalAPI.updateSettings(patch);
@@ -574,6 +507,15 @@ function bindSessionEvents(): void {
 
     tab.exited = true;
     tab.term.writeln(`\r\n\x1b[31m[process exited with code ${exitCode}]\x1b[0m`);
+    renderTabStrip();
+    updateStatus();
+  });
+}
+
+function bindSystemAppearanceEvents(): void {
+  window.terminalAPI.onSystemAppearanceChanged(({ appearance }) => {
+    systemAppearance = appearance;
+    applySettingsToAllTabs();
     renderTabStrip();
     updateStatus();
   });
@@ -719,12 +661,14 @@ function bindUI(): void {
 }
 
 async function boot(): Promise<void> {
+  systemAppearance = await window.terminalAPI.getSystemAppearance();
   settings = await window.terminalAPI.getSettings();
   applySettingsToAllTabs();
   bindUI();
   bindKeyboardShortcuts();
   bindMenuActions();
   bindSessionEvents();
+  bindSystemAppearanceEvents();
   await createTab();
   updateStatus();
 }
