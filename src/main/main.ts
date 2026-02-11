@@ -65,7 +65,7 @@ function createMainWindow(settings: AppSettings): BrowserWindow {
     y: state.y,
     minWidth: 960,
     minHeight: 600,
-    title: 'LocalTerminal',
+    title: 'BasedShell',
     backgroundColor,
     transparent: useVibrancy,
     vibrancy: useVibrancy ? 'under-window' : undefined,

@@ -1,5 +1,5 @@
 {
-  "name": "localterminal",
+  "name": "basedshell",
   "version": "1.0.0",
   "description": "Production-grade macOS terminal built with Electron, node-pty, and xterm.js",
   "main": "dist/main/main.js",
@@ -21,8 +21,8 @@
     "package": "npm run package:mac"
   },
   "build": {
-    "appId": "com.localterminal.app",
-    "productName": "LocalTerminal",
+    "appId": "com.basedshell.app",
+    "productName": "BasedShell",
     "asar": true,
     "directories": {
       "output": "release"

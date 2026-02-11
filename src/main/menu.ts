@@ -25,7 +25,7 @@ export function createAppMenu(): Menu {
 
   if (isMac) {
     template.push({
-      label: 'LocalTerminal',
+      label: 'BasedShell',
       submenu: [
         roleItem('about'),
         separator,

@@ -1,17 +1,27 @@
-# LocalTerminal
+# BasedShell
 
-A production-grade terminal application for macOS built with Electron, `node-pty`, and `xterm.js`.
+BasedShell is a production-grade macOS terminal app built with Electron, `node-pty`, and `xterm.js`.
 
-## What You Get
+## Current Features
 
-- Native shell sessions using your login shell (zsh, bash, fish, etc.)
-- Multi-tab terminal workflow
-- Persistent terminal settings (font, theme, cursor, scrollback, opacity)
-- Keyboard-driven UX inspired by modern terminals (Cmd/Ctrl shortcuts)
-- Native macOS menu integration
-- Search inside terminal output
-- Session lifecycle handling with robust PTY process management
-- Packaged app builds (`dmg`/`zip`) via `electron-builder`
+- Native PTY shell sessions using your login shell
+- Multi-tab terminal workflow with keyboard-first controls
+- Reconciled tab strip with smooth enter/exit transitions
+- Tab activity states:
+  - Active output pulse
+  - Unread output indicator on background tabs
+  - Exited tab state indicator
+- Overflow-aware tab strip with dynamic tab width compression
+- Persistent settings (font, cursor, scrollback, opacity, theme, vibrancy)
+- Full UI + terminal theme architecture with built-in themes:
+  - `graphite`, `midnight`, `solarized-dark`, `paper`, `aurora`, `noir`, `fog`
+  - `system` theme selection support
+- System appearance integration (`dark`/`light` updates)
+- Optional macOS vibrancy mode
+- Search in terminal output
+- Native app menu and standard terminal shortcuts
+- SVG icon system for terminal chrome controls
+- Packaged macOS builds (`dmg`/`zip`) via `electron-builder`
 
 ## Quick Start
 
@@ -20,13 +30,13 @@ npm install
 npm run dev
 ```
 
-For a production launch:
+Production run:
 
 ```bash
 npm run start
 ```
 
-To package for macOS:
+Build distributables:
 
 ```bash
 npm run package:mac
@@ -36,20 +46,21 @@ npm run package:mac
 
 - `Cmd/Ctrl+T`: new tab
 - `Cmd/Ctrl+W`: close active tab
-- `Cmd/Ctrl+F`: search terminal buffer
-- `Cmd/Ctrl+,`: settings
+- `Cmd/Ctrl+F`: find in terminal
+- `Cmd/Ctrl+,`: open settings
 - `Cmd/Ctrl+K`: clear terminal
 - `Cmd/Ctrl+1..9`: jump to tab
-- `Cmd/Ctrl+/-/0`: zoom terminal font in/out/reset
+- `Cmd/Ctrl+/-/0`: terminal font zoom in/out/reset
 
 ## Project Structure
 
-- `src/main`: Electron main process, IPC, PTY orchestration
-- `src/preload`: secure context bridge API
-- `src/renderer`: terminal UI and interaction logic
-- `src/shared`: shared type contracts between processes
+- `src/main`: Electron main process, IPC, window lifecycle, PTY orchestration
+- `src/preload`: secure renderer bridge API
+- `src/renderer`: UI, tab lifecycle, terminal interactions, themes, icons
+- `src/shared`: cross-process type and theme metadata contracts
 
 ## Notes
 
-- The PTY backend is `node-pty`, so native build tooling is required during `npm install`.
-- Settings and window state are stored in Electron user data (`~/Library/Application Support/LocalTerminal` on macOS).
+- `node-pty` requires native tooling during install.
+- `postinstall` runs `scripts/fix-node-pty-helper.mjs` to ensure `spawn-helper` is executable on macOS.
+- Runtime settings and window state are stored under Electron user data (typically `~/Library/Application Support/BasedShell` on macOS).
