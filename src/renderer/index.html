@@ -51,7 +51,7 @@
 
           <label>
             Theme
-            <div id="setting-theme-swatches" class="theme-swatches">
+            <div id="setting-theme-swatches" class="theme-swatches" role="radiogroup" aria-label="Theme">
               <button type="button" class="theme-swatch" data-theme="system">System</button>
               <button type="button" class="theme-swatch" data-theme="graphite">Graphite</button>
               <button type="button" class="theme-swatch" data-theme="midnight">Midnight</button>
@@ -61,16 +61,7 @@
               <button type="button" class="theme-swatch" data-theme="noir">Noir</button>
               <button type="button" class="theme-swatch" data-theme="fog">Fog</button>
             </div>
-            <select id="setting-theme">
-              <option value="system">System</option>
-              <option value="graphite">Graphite</option>
-              <option value="midnight">Midnight</option>
-              <option value="solarized-dark">Solarized Dark</option>
-              <option value="paper">Paper</option>
-              <option value="aurora">Aurora</option>
-              <option value="noir">Noir</option>
-              <option value="fog">Fog</option>
-            </select>
+            <input id="setting-theme" type="hidden" value="system" />
           </label>
 
           <label>

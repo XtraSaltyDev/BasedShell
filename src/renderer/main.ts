@@ -58,7 +58,7 @@ const dom = {
   settingLineHeight: document.querySelector<HTMLInputElement>('#setting-line-height'),
   settingScrollback: document.querySelector<HTMLInputElement>('#setting-scrollback'),
   settingOpacity: document.querySelector<HTMLInputElement>('#setting-opacity'),
-  settingTheme: document.querySelector<HTMLSelectElement>('#setting-theme'),
+  settingTheme: document.querySelector<HTMLInputElement>('#setting-theme'),
   settingAppearance: document.querySelector<HTMLSelectElement>('#setting-appearance'),
   settingCursorStyle: document.querySelector<HTMLSelectElement>('#setting-cursor-style'),
   settingCursorBlink: document.querySelector<HTMLInputElement>('#setting-cursor-blink'),
@@ -610,8 +610,17 @@ function syncThemeSwatches(): void {
   const selectedTheme = ui.settingTheme.value;
   const swatches = ui.settingThemeSwatches.querySelectorAll<HTMLButtonElement>('.theme-swatch');
   for (const swatch of swatches) {
-    swatch.classList.toggle('selected', swatch.dataset.theme === selectedTheme);
+    const selected = swatch.dataset.theme === selectedTheme;
+    swatch.classList.toggle('selected', selected);
+    swatch.setAttribute('aria-checked', selected ? 'true' : 'false');
+    swatch.setAttribute('role', 'radio');
+    swatch.tabIndex = selected ? 0 : -1;
   }
+}
+
+function focusSelectedThemeSwatch(): void {
+  const selected = ui.settingThemeSwatches.querySelector<HTMLButtonElement>('.theme-swatch.selected');
+  (selected ?? ui.settingThemeSwatches.querySelector<HTMLButtonElement>('.theme-swatch'))?.focus();
 }
 
 function syncSettingsFormFromState(source: AppSettings): void {
@@ -670,7 +679,7 @@ function closeSettingsPanel(discardPreview: boolean): void {
 
 function openSettings(): void {
   if (isSettingsOpen()) {
-    ui.settingTheme.focus();
+    focusSelectedThemeSwatch();
     return;
   }
 
@@ -683,7 +692,7 @@ function openSettings(): void {
     ui.settingsPanel.classList.add('open');
     ui.settingsPanel.setAttribute('aria-hidden', 'false');
     ui.settingsScrim.classList.add('open');
-    ui.settingTheme.focus();
+    focusSelectedThemeSwatch();
   });
 }
 
@@ -814,7 +823,7 @@ function bindSystemAppearanceEvents(): void {
 
 function applyStaticIcons(): void {
   ui.newTabButton.innerHTML = icon('plus', 14);
-  ui.settingsButton.innerHTML = icon('gear', 14);
+  ui.settingsButton.innerHTML = icon('gear', 15);
   ui.settingsClose.innerHTML = icon('close', 14);
 }
 
@@ -964,10 +973,6 @@ function bindUI(): void {
 
     if (target instanceof HTMLInputElement && target.type === 'range') {
       setRangeFill(target);
-    }
-
-    if (target === ui.settingTheme) {
-      syncThemeSwatches();
     }
 
     previewSettingsFromForm();

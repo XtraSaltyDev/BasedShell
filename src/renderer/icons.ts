@@ -3,7 +3,7 @@ const ICONS = {
   close:
     '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
   gear:
-    '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.2 2.3h3.6l.5 1.4c.3.1.6.2.9.4L12.7 3l2.5 2.5-1.1 1.5c.2.3.3.6.4.9l1.4.5v3.6l-1.4.5c-.1.3-.2.6-.4.9l1.1 1.5-2.5 2.5-1.5-1.1c-.3.2-.6.3-.9.4l-.5 1.4H6.2l-.5-1.4c-.3-.1-.6-.2-.9-.4L3.3 15 0.8 12.5l1.1-1.5c-.2-.3-.3-.6-.4-.9L0 9.6V6l1.5-.5c.1-.3.2-.6.4-.9L0.8 3.1 3.3.6l1.5 1.1c.3-.2.6-.3.9-.4L6.2.9Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.1"/></svg>',
+    '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/></svg>',
   dot: '<svg viewBox="0 0 8 8" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="4" cy="4" r="3" fill="currentColor"/></svg>'
 } as const;
 
