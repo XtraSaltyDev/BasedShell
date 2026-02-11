@@ -1,9 +1,12 @@
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from 'electron';
 import type {
   AppearanceMode,
   AppSettings,
   CreateSessionRequest,
+  GitStatus,
   SessionResizeRequest,
   SessionWriteRequest,
   SystemAppearanceEvent,
@@ -20,6 +23,7 @@ let mainWindow: BrowserWindow | null = null;
 let sessionManager: SessionManager | null = null;
 let settingsService: SettingsService | null = null;
 let windowStateStore: JsonStore<WindowState> | null = null;
+const execFileAsync = promisify(execFile);
 
 function getWindowStateStore(): JsonStore<WindowState> {
   if (!windowStateStore) {
@@ -50,6 +54,40 @@ function applyWindowTheme(window: BrowserWindow, settings: AppSettings): void {
 
   if (process.platform === 'darwin') {
     window.setVibrancy(settings.vibrancy ? 'under-window' : null);
+  }
+}
+
+async function resolveGitStatus(cwd: string): Promise<GitStatus | null> {
+  if (typeof cwd !== 'string') {
+    return null;
+  }
+
+  const trimmed = cwd.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const branch = await execFileAsync('git', ['-C', trimmed, 'rev-parse', '--abbrev-ref', 'HEAD'], {
+      timeout: 1500,
+      maxBuffer: 128 * 1024
+    });
+    const branchName = branch.stdout.trim();
+    if (!branchName) {
+      return null;
+    }
+
+    const dirty = await execFileAsync('git', ['-C', trimmed, 'status', '--porcelain'], {
+      timeout: 1500,
+      maxBuffer: 512 * 1024
+    });
+
+    return {
+      branch: branchName,
+      dirty: dirty.stdout.trim().length > 0
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -114,6 +152,7 @@ function createMainWindow(settings: AppSettings): BrowserWindow {
 function registerIpcHandlers(): void {
   ipcMain.handle('app:get-version', () => app.getVersion());
   ipcMain.handle('system:get-appearance', () => getSystemAppearance());
+  ipcMain.handle('git:status', (_, cwd: string) => resolveGitStatus(cwd));
 
   ipcMain.handle('settings:get', () => {
     if (!settingsService) {

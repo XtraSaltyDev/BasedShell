@@ -9,12 +9,14 @@ import type {
   SessionSummary,
   SystemAppearanceEvent,
   SessionWriteRequest,
+  GitStatus,
   SettingsPatch
 } from '../shared/types';
 
 interface TerminalAPI {
   getVersion: () => Promise<string>;
   getSystemAppearance: () => Promise<AppearanceMode>;
+  getGitStatus: (cwd: string) => Promise<GitStatus | null>;
   getSettings: () => Promise<AppSettings>;
   updateSettings: (patch: SettingsPatch) => Promise<AppSettings>;
   createSession: (request: CreateSessionRequest) => Promise<SessionSummary>;
