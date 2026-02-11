@@ -21,11 +21,34 @@
 
       <main id="terminal-host" aria-live="polite"></main>
 
-      <footer id="statusbar">
-        <span id="status-left">Ready</span>
-        <span id="status-right"></span>
+      <footer id="statusbar" aria-label="Terminal status">
+        <div id="status-left" class="status-group">
+          <button id="status-shell" class="status-segment" type="button" title="Active shell and process">
+            Shell
+          </button>
+          <button id="status-cwd" class="status-segment" type="button" title="Current working directory">
+            Path
+          </button>
+          <button id="status-git" class="status-segment" type="button" title="Git branch and repository state">
+            Git
+          </button>
+        </div>
+        <div id="status-right" class="status-group">
+          <button id="status-context" class="status-segment" type="button" title="Last process exit code and duration">
+            Context
+          </button>
+          <button id="status-tabs" class="status-segment" type="button" title="Open tab count">
+            Tabs
+          </button>
+          <button id="status-theme" class="status-segment" type="button" title="Current theme">
+            Theme
+          </button>
+        </div>
       </footer>
     </div>
+
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-label="Notifications"></div>
+    <div id="toast-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <div id="search-panel" class="overlay hidden" role="dialog" aria-modal="false" aria-label="Search terminal output">
       <input id="search-input" type="text" placeholder="Find in terminal" />

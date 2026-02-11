@@ -7,6 +7,7 @@ import type {
   SessionDataEvent,
   SessionExitEvent,
   SessionSummary,
+  GitStatus,
   SessionResizeRequest,
   SystemAppearanceEvent,
   SessionWriteRequest,
@@ -28,6 +29,7 @@ function subscribe<T>(channel: string, callback: (event: T) => void): () => void
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
   getSystemAppearance: (): Promise<AppearanceMode> => ipcRenderer.invoke('system:get-appearance'),
+  getGitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke('git:status', cwd),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: SettingsPatch): Promise<AppSettings> => ipcRenderer.invoke('settings:update', patch),
   createSession: (request: CreateSessionRequest): Promise<SessionSummary> =>

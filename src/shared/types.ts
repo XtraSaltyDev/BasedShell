@@ -144,6 +144,11 @@ export interface SessionExitEvent {
   signal?: number;
 }
 
+export interface GitStatus {
+  branch: string;
+  dirty: boolean;
+}
+
 export interface SystemAppearanceEvent {
   appearance: AppearanceMode;
 }

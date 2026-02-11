@@ -7,6 +7,7 @@ import type {
   AppSettings,
   AppearanceMode,
   CursorStyle,
+  GitStatus,
   MenuAction,
   SessionSummary,
   SettingsPatch,
@@ -14,6 +15,7 @@ import type {
 } from '../shared/types';
 import { applyThemeChrome, resolveThemeState, type ResolvedThemeState } from './themes';
 import { icon } from './icons';
+import { createToastManager } from './toast';
 import './tokens.css';
 import './styles.css';
 
@@ -27,10 +29,24 @@ interface TabState {
   fit: FitAddon;
   search: SearchAddon;
   container: HTMLDivElement;
+  cwd: string;
+  startedAt: number;
+  lastExitCode: number | null;
+  lastExitDurationMs: number | null;
   exited: boolean;
   hasUnreadOutput: boolean;
   hasRecentOutput: boolean;
   outputPulseTimer?: ReturnType<typeof setTimeout>;
+}
+
+interface GitStatusSnapshot extends GitStatus {
+  fetchedAt: number;
+}
+
+interface CommandContext {
+  exitCode: number;
+  durationMs: number;
+  at: number;
 }
 
 const dom = {
@@ -38,8 +54,16 @@ const dom = {
   newTabButton: document.querySelector<HTMLButtonElement>('#new-tab-button'),
   settingsButton: document.querySelector<HTMLButtonElement>('#settings-button'),
   terminalHost: document.querySelector<HTMLDivElement>('#terminal-host'),
-  statusLeft: document.querySelector<HTMLSpanElement>('#status-left'),
-  statusRight: document.querySelector<HTMLSpanElement>('#status-right'),
+  statusLeft: document.querySelector<HTMLDivElement>('#status-left'),
+  statusRight: document.querySelector<HTMLDivElement>('#status-right'),
+  statusShell: document.querySelector<HTMLButtonElement>('#status-shell'),
+  statusCwd: document.querySelector<HTMLButtonElement>('#status-cwd'),
+  statusGit: document.querySelector<HTMLButtonElement>('#status-git'),
+  statusContext: document.querySelector<HTMLButtonElement>('#status-context'),
+  statusTabs: document.querySelector<HTMLButtonElement>('#status-tabs'),
+  statusTheme: document.querySelector<HTMLButtonElement>('#status-theme'),
+  toastContainer: document.querySelector<HTMLDivElement>('#toast-container'),
+  toastAnnouncer: document.querySelector<HTMLDivElement>('#toast-announcer'),
   searchPanel: document.querySelector<HTMLDivElement>('#search-panel'),
   searchInput: document.querySelector<HTMLInputElement>('#search-input'),
   searchCase: document.querySelector<HTMLInputElement>('#search-case-sensitive'),
@@ -74,6 +98,10 @@ let activeTabId = '';
 let tabCount = 0;
 const tabRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let settingsPreviewBaseline: AppSettings | null = null;
+const gitStatusByCwd = new Map<string, GitStatusSnapshot>();
+const pendingGitRequests = new Set<string>();
+let gitPollTimer: ReturnType<typeof setInterval> | undefined;
+let lastCommandContext: CommandContext | null = null;
 
 function assertDom<T>(value: T | null, id: string): T {
   if (!value) {
@@ -90,6 +118,14 @@ const ui = {
   terminalHost: assertDom(dom.terminalHost, '#terminal-host'),
   statusLeft: assertDom(dom.statusLeft, '#status-left'),
   statusRight: assertDom(dom.statusRight, '#status-right'),
+  statusShell: assertDom(dom.statusShell, '#status-shell'),
+  statusCwd: assertDom(dom.statusCwd, '#status-cwd'),
+  statusGit: assertDom(dom.statusGit, '#status-git'),
+  statusContext: assertDom(dom.statusContext, '#status-context'),
+  statusTabs: assertDom(dom.statusTabs, '#status-tabs'),
+  statusTheme: assertDom(dom.statusTheme, '#status-theme'),
+  toastContainer: assertDom(dom.toastContainer, '#toast-container'),
+  toastAnnouncer: assertDom(dom.toastAnnouncer, '#toast-announcer'),
   searchPanel: assertDom(dom.searchPanel, '#search-panel'),
   searchInput: assertDom(dom.searchInput, '#search-input'),
   searchCase: assertDom(dom.searchCase, '#search-case-sensitive'),
@@ -114,6 +150,8 @@ const ui = {
   settingCursorBlink: assertDom(dom.settingCursorBlink, '#setting-cursor-blink'),
   settingVibrancy: assertDom(dom.settingVibrancy, '#setting-vibrancy')
 };
+
+const toasts = createToastManager(ui.toastContainer, ui.toastAnnouncer);
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -351,20 +389,190 @@ function renderTabStrip(): void {
   updateTabStripOverflow();
 }
 
-function updateStatus(): void {
-  const active = tabs.get(activeTabId);
+function shellName(shellPath: string): string {
+  const normalized = shellPath.replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  return parts[parts.length - 1] || shellPath;
+}
+
+function truncateMiddle(value: string, max = 36): string {
+  if (value.length <= max) {
+    return value;
+  }
+
+  const head = Math.ceil((max - 1) / 2);
+  const tail = Math.floor((max - 1) / 2);
+  return `${value.slice(0, head)}…${value.slice(value.length - tail)}`;
+}
+
+function formatDuration(durationMs: number): string {
+  const seconds = Math.max(0, Math.round(durationMs / 1000));
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) {
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+function setStatusSegmentState(button: HTMLButtonElement, state: 'idle' | 'success' | 'warning' | 'danger'): void {
+  button.dataset.state = state;
+}
+
+async function refreshActiveGitStatus(force = false): Promise<void> {
+  const active = activeTab();
   if (!active) {
-    ui.statusLeft.textContent = 'No active session';
-    ui.statusRight.textContent = '';
     return;
   }
 
-  ui.statusLeft.textContent = active.exited
-    ? `Exited · ${active.shell}`
-    : `${active.shell} · PID ${active.pid}`;
+  const cwd = active.cwd;
+  if (!cwd || pendingGitRequests.has(cwd)) {
+    return;
+  }
+
+  const cached = gitStatusByCwd.get(cwd);
+  if (!force && cached && Date.now() - cached.fetchedAt < 4500) {
+    return;
+  }
+
+  pendingGitRequests.add(cwd);
+  try {
+    const next = await window.terminalAPI.getGitStatus(cwd);
+    if (next) {
+      gitStatusByCwd.set(cwd, {
+        ...next,
+        fetchedAt: Date.now()
+      });
+    } else {
+      gitStatusByCwd.delete(cwd);
+    }
+  } catch {
+    toasts.show('Unable to refresh Git status.', 'error', 0);
+  } finally {
+    pendingGitRequests.delete(cwd);
+    updateStatus();
+  }
+}
+
+function startGitStatusPolling(): void {
+  if (gitPollTimer) {
+    clearInterval(gitPollTimer);
+  }
+
+  gitPollTimer = setInterval(() => {
+    void refreshActiveGitStatus(false);
+  }, 5000);
+}
+
+const themeCycleOrder: ThemeSelection[] = [
+  'system',
+  'graphite',
+  'midnight',
+  'solarized-dark',
+  'paper',
+  'aurora',
+  'noir',
+  'fog'
+];
+
+async function cycleTheme(): Promise<void> {
+  const currentIndex = themeCycleOrder.findIndex((theme) => theme === settings.theme);
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % themeCycleOrder.length : 0;
+  const nextTheme = themeCycleOrder[nextIndex] ?? 'system';
+
+  try {
+    settings = await window.terminalAPI.updateSettings({ theme: nextTheme });
+    if (isSettingsOpen()) {
+      syncSettingsFormFromState(settings);
+    }
+    applySettingsToAllTabs();
+    renderTabStrip();
+    updateStatus();
+    toasts.show(`Theme: ${nextTheme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName}`, 'success');
+  } catch {
+    toasts.show('Failed to switch theme.', 'error', 0);
+  }
+}
+
+function updateStatus(): void {
+  const active = tabs.get(activeTabId);
+  if (!active) {
+    ui.statusShell.textContent = 'No Session';
+    ui.statusShell.title = 'No active session';
+    setStatusSegmentState(ui.statusShell, 'idle');
+
+    ui.statusCwd.textContent = 'Path —';
+    ui.statusCwd.title = 'No active session path';
+    setStatusSegmentState(ui.statusCwd, 'idle');
+
+    ui.statusGit.textContent = 'Git —';
+    ui.statusGit.title = 'No active repository';
+    setStatusSegmentState(ui.statusGit, 'idle');
+
+    ui.statusContext.textContent = 'Exit —';
+    ui.statusContext.title = 'No command context available';
+    setStatusSegmentState(ui.statusContext, 'idle');
+
+    ui.statusTabs.textContent = '0 tabs';
+    ui.statusTabs.title = 'No open tabs';
+    setStatusSegmentState(ui.statusTabs, 'idle');
+
+    ui.statusTheme.textContent = resolvedTheme.themeName;
+    ui.statusTheme.title = 'Theme';
+    setStatusSegmentState(ui.statusTheme, 'idle');
+    return;
+  }
+
+  const shellLabel = shellName(active.shell);
+  ui.statusShell.textContent = active.exited ? `${shellLabel} (Exited)` : `${shellLabel} · ${active.pid}`;
+  ui.statusShell.title = `Shell: ${active.shell}${active.exited ? ' (exited)' : ''}. Click to open settings.`;
+  setStatusSegmentState(ui.statusShell, active.exited ? 'warning' : 'idle');
+
+  ui.statusCwd.textContent = truncateMiddle(active.cwd, 34);
+  ui.statusCwd.title = `Working directory: ${active.cwd}. Click to copy path.`;
+  setStatusSegmentState(ui.statusCwd, 'idle');
+
+  const git = gitStatusByCwd.get(active.cwd);
+  if (git) {
+    ui.statusGit.textContent = git.dirty ? `${git.branch} *` : git.branch;
+    ui.statusGit.title = `Git branch: ${git.branch}${git.dirty ? ' (dirty)' : ' (clean)'} · Click to refresh`;
+    setStatusSegmentState(ui.statusGit, git.dirty ? 'warning' : 'success');
+  } else {
+    ui.statusGit.textContent = 'No Repo';
+    ui.statusGit.title = `No git repository detected for ${active.cwd}. Click to refresh.`;
+    setStatusSegmentState(ui.statusGit, 'idle');
+  }
+
+  const context =
+    active.lastExitCode !== null && active.lastExitDurationMs !== null
+      ? { exitCode: active.lastExitCode, durationMs: active.lastExitDurationMs }
+      : lastCommandContext;
+  if (context) {
+    ui.statusContext.textContent = `Exit ${context.exitCode} · ${formatDuration(context.durationMs)}`;
+    ui.statusContext.title = `Last process exit code ${context.exitCode} after ${formatDuration(context.durationMs)}.`;
+    setStatusSegmentState(ui.statusContext, context.exitCode === 0 ? 'success' : 'danger');
+  } else {
+    ui.statusContext.textContent = 'Exit —';
+    ui.statusContext.title = 'No command context available yet.';
+    setStatusSegmentState(ui.statusContext, 'idle');
+  }
+
+  ui.statusTabs.textContent = `${tabOrder.length} tab${tabOrder.length === 1 ? '' : 's'}`;
+  ui.statusTabs.title = `${tabOrder.length} open tab${tabOrder.length === 1 ? '' : 's'}.`;
+  setStatusSegmentState(ui.statusTabs, 'idle');
+
   const themeLabel =
     settings.theme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName;
-  ui.statusRight.textContent = `${tabOrder.length} tab${tabOrder.length === 1 ? '' : 's'} · ${themeLabel}`;
+  ui.statusTheme.textContent = themeLabel;
+  ui.statusTheme.title = `Theme: ${themeLabel}. Click to cycle themes.`;
+  setStatusSegmentState(ui.statusTheme, 'idle');
 }
 
 function activateTab(tabId: string): void {
@@ -382,6 +590,7 @@ function activateTab(tabId: string): void {
 
   renderTabStrip();
   updateStatus();
+  void refreshActiveGitStatus(false);
   const active = tabs.get(tabId);
   active?.fit.fit();
   active?.term.focus();
@@ -468,8 +677,8 @@ async function createTab(): Promise<void> {
   } catch (error) {
     term.dispose();
     container.remove();
-    ui.statusLeft.textContent = `Failed to create session: ${String(error)}`;
-    ui.statusRight.textContent = '';
+    toasts.show(`Failed to create session: ${String(error)}`, 'error', 0);
+    updateStatus();
     return;
   }
 
@@ -484,6 +693,10 @@ async function createTab(): Promise<void> {
     fit,
     search,
     container,
+    cwd: summary.cwd,
+    startedAt: Date.now(),
+    lastExitCode: null,
+    lastExitDurationMs: null,
     exited: false,
     hasUnreadOutput: false,
     hasRecentOutput: false
@@ -803,10 +1016,23 @@ function bindSessionEvents(): void {
       return;
     }
 
+    const durationMs = Date.now() - tab.startedAt;
+    tab.lastExitCode = exitCode;
+    tab.lastExitDurationMs = durationMs;
     tab.exited = true;
     tab.hasUnreadOutput = false;
     clearOutputPulse(tab);
+    lastCommandContext = {
+      exitCode,
+      durationMs,
+      at: Date.now()
+    };
     tab.term.writeln(`\r\n\x1b[31m[process exited with code ${exitCode}]\x1b[0m`);
+    toasts.show(
+      `Session exited with code ${exitCode} after ${formatDuration(durationMs)}.`,
+      exitCode === 0 ? 'info' : 'error',
+      exitCode === 0 ? 3000 : 0
+    );
     renderTabStrip();
     updateStatus();
   });
@@ -937,6 +1163,47 @@ function bindUI(): void {
     openSettings();
   });
 
+  ui.statusShell.addEventListener('click', () => {
+    openSettings();
+  });
+
+  ui.statusCwd.addEventListener('click', () => {
+    const active = activeTab();
+    if (!active) {
+      return;
+    }
+
+    void navigator.clipboard
+      .writeText(active.cwd)
+      .then(() => {
+        toasts.show('Copied working directory path.', 'success');
+      })
+      .catch(() => {
+        toasts.show('Unable to copy path to clipboard.', 'error', 0);
+      });
+  });
+
+  ui.statusGit.addEventListener('click', () => {
+    void refreshActiveGitStatus(true);
+  });
+
+  ui.statusContext.addEventListener('click', () => {
+    if (!lastCommandContext) {
+      toasts.show('No command context available yet.', 'info');
+      return;
+    }
+
+    toasts.show(
+      `Last exit ${lastCommandContext.exitCode} after ${formatDuration(lastCommandContext.durationMs)}.`,
+      lastCommandContext.exitCode === 0 ? 'success' : 'error',
+      lastCommandContext.exitCode === 0 ? 2600 : 0
+    );
+  });
+
+  ui.statusTheme.addEventListener('click', () => {
+    void cycleTheme();
+  });
+
   ui.searchInput.addEventListener('input', () => runSearch(true));
   ui.searchNext.addEventListener('click', () => runSearch(true));
   ui.searchPrev.addEventListener('click', () => runSearch(false));
@@ -1026,6 +1293,13 @@ function bindUI(): void {
       updateTabStripOverflow();
     }, 60);
   });
+
+  window.addEventListener('beforeunload', () => {
+    if (gitPollTimer) {
+      clearInterval(gitPollTimer);
+      gitPollTimer = undefined;
+    }
+  });
 }
 
 async function boot(): Promise<void> {
@@ -1038,8 +1312,10 @@ async function boot(): Promise<void> {
   bindMenuActions();
   bindSessionEvents();
   bindSystemAppearanceEvents();
+  startGitStatusPolling();
   await createTab();
   updateStatus();
+  void refreshActiveGitStatus(true);
 }
 
 void boot();
