@@ -46,8 +46,13 @@ const dom = {
   searchPrev: document.querySelector<HTMLButtonElement>('#search-prev'),
   searchNext: document.querySelector<HTMLButtonElement>('#search-next'),
   searchClose: document.querySelector<HTMLButtonElement>('#search-close'),
-  settingsDialog: document.querySelector<HTMLDialogElement>('#settings-dialog'),
+  settingsPanel: document.querySelector<HTMLElement>('#settings-panel'),
+  settingsScrim: document.querySelector<HTMLDivElement>('#settings-scrim'),
+  settingsClose: document.querySelector<HTMLButtonElement>('#settings-close'),
+  settingsCancel: document.querySelector<HTMLButtonElement>('#settings-cancel'),
+  settingsSave: document.querySelector<HTMLButtonElement>('#settings-save'),
   settingsForm: document.querySelector<HTMLFormElement>('#settings-form'),
+  settingThemeSwatches: document.querySelector<HTMLDivElement>('#setting-theme-swatches'),
   settingFontFamily: document.querySelector<HTMLInputElement>('#setting-font-family'),
   settingFontSize: document.querySelector<HTMLInputElement>('#setting-font-size'),
   settingLineHeight: document.querySelector<HTMLInputElement>('#setting-line-height'),
@@ -68,6 +73,7 @@ let tabOrder: string[] = [];
 let activeTabId = '';
 let tabCount = 0;
 const tabRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let settingsPreviewBaseline: AppSettings | null = null;
 
 function assertDom<T>(value: T | null, id: string): T {
   if (!value) {
@@ -90,8 +96,13 @@ const ui = {
   searchPrev: assertDom(dom.searchPrev, '#search-prev'),
   searchNext: assertDom(dom.searchNext, '#search-next'),
   searchClose: assertDom(dom.searchClose, '#search-close'),
-  settingsDialog: assertDom(dom.settingsDialog, '#settings-dialog'),
+  settingsPanel: assertDom(dom.settingsPanel, '#settings-panel'),
+  settingsScrim: assertDom(dom.settingsScrim, '#settings-scrim'),
+  settingsClose: assertDom(dom.settingsClose, '#settings-close'),
+  settingsCancel: assertDom(dom.settingsCancel, '#settings-cancel'),
+  settingsSave: assertDom(dom.settingsSave, '#settings-save'),
   settingsForm: assertDom(dom.settingsForm, '#settings-form'),
+  settingThemeSwatches: assertDom(dom.settingThemeSwatches, '#setting-theme-swatches'),
   settingFontFamily: assertDom(dom.settingFontFamily, '#setting-font-family'),
   settingFontSize: assertDom(dom.settingFontSize, '#setting-font-size'),
   settingLineHeight: assertDom(dom.settingLineHeight, '#setting-line-height'),
@@ -578,26 +589,51 @@ function runSearch(forward: boolean): void {
   }
 }
 
-function syncSettingsDialog(): void {
-  ui.settingFontFamily.value = settings.fontFamily;
-  ui.settingFontSize.value = String(settings.fontSize);
-  ui.settingLineHeight.value = String(settings.lineHeight);
-  ui.settingScrollback.value = String(settings.scrollback);
-  ui.settingOpacity.value = String(settings.backgroundOpacity);
-  ui.settingTheme.value = settings.theme;
-  ui.settingAppearance.value = settings.appearancePreference;
-  ui.settingCursorStyle.value = settings.cursorStyle;
-  ui.settingCursorBlink.checked = settings.cursorBlink;
-  ui.settingVibrancy.checked = settings.vibrancy;
+function isSettingsOpen(): boolean {
+  return ui.settingsPanel.classList.contains('open');
 }
 
-function openSettings(): void {
-  syncSettingsDialog();
-  ui.settingsDialog.showModal();
+function setRangeFill(input: HTMLInputElement): void {
+  if (input.type !== 'range') {
+    return;
+  }
+
+  const min = Number(input.min || 0);
+  const max = Number(input.max || 100);
+  const value = Number(input.value || min);
+  const ratio = max <= min ? 0 : (value - min) / (max - min);
+  const percent = `${Math.round(ratio * 100)}%`;
+  input.style.setProperty('--fill-percent', percent);
 }
 
-async function saveSettingsFromForm(): Promise<void> {
-  const patch: SettingsPatch = {
+function syncThemeSwatches(): void {
+  const selectedTheme = ui.settingTheme.value;
+  const swatches = ui.settingThemeSwatches.querySelectorAll<HTMLButtonElement>('.theme-swatch');
+  for (const swatch of swatches) {
+    swatch.classList.toggle('selected', swatch.dataset.theme === selectedTheme);
+  }
+}
+
+function syncSettingsFormFromState(source: AppSettings): void {
+  ui.settingFontFamily.value = source.fontFamily;
+  ui.settingFontSize.value = String(source.fontSize);
+  ui.settingLineHeight.value = String(source.lineHeight);
+  ui.settingScrollback.value = String(source.scrollback);
+  ui.settingOpacity.value = String(source.backgroundOpacity);
+  ui.settingTheme.value = source.theme;
+  ui.settingAppearance.value = source.appearancePreference;
+  ui.settingCursorStyle.value = source.cursorStyle;
+  ui.settingCursorBlink.checked = source.cursorBlink;
+  ui.settingVibrancy.checked = source.vibrancy;
+
+  setRangeFill(ui.settingFontSize);
+  setRangeFill(ui.settingLineHeight);
+  setRangeFill(ui.settingOpacity);
+  syncThemeSwatches();
+}
+
+function settingsPatchFromForm(): SettingsPatch {
+  return {
     fontFamily: ui.settingFontFamily.value,
     fontSize: Number(ui.settingFontSize.value),
     lineHeight: Number(ui.settingLineHeight.value),
@@ -609,11 +645,73 @@ async function saveSettingsFromForm(): Promise<void> {
     cursorBlink: ui.settingCursorBlink.checked,
     vibrancy: ui.settingVibrancy.checked
   };
+}
 
-  settings = await window.terminalAPI.updateSettings(patch);
+function closeSettingsPanel(discardPreview: boolean): void {
+  if (discardPreview && settingsPreviewBaseline) {
+    settings = settingsPreviewBaseline;
+    applySettingsToAllTabs();
+    renderTabStrip();
+    updateStatus();
+  }
+
+  settingsPreviewBaseline = null;
+  ui.settingsPanel.classList.remove('open');
+  ui.settingsPanel.setAttribute('aria-hidden', 'true');
+  ui.settingsScrim.classList.remove('open');
+  ui.terminalHost.classList.remove('panel-open');
+  setTimeout(() => {
+    if (!isSettingsOpen()) {
+      ui.settingsScrim.classList.add('hidden');
+    }
+  }, 280);
+  activeTab()?.term.focus();
+}
+
+function openSettings(): void {
+  if (isSettingsOpen()) {
+    ui.settingTheme.focus();
+    return;
+  }
+
+  settingsPreviewBaseline = structuredClone(settings);
+  syncSettingsFormFromState(settings);
+
+  ui.settingsScrim.classList.remove('hidden');
+  ui.terminalHost.classList.add('panel-open');
+  requestAnimationFrame(() => {
+    ui.settingsPanel.classList.add('open');
+    ui.settingsPanel.setAttribute('aria-hidden', 'false');
+    ui.settingsScrim.classList.add('open');
+    ui.settingTheme.focus();
+  });
+}
+
+function previewSettingsFromForm(): void {
+  if (!settingsPreviewBaseline) {
+    return;
+  }
+
+  const patch = settingsPatchFromForm();
+  settings = {
+    ...settingsPreviewBaseline,
+    ...patch,
+    profiles: settingsPreviewBaseline.profiles,
+    defaultProfileId: settingsPreviewBaseline.defaultProfileId
+  };
   applySettingsToAllTabs();
   renderTabStrip();
   updateStatus();
+}
+
+async function saveSettingsFromForm(): Promise<void> {
+  const patch = settingsPatchFromForm();
+  settings = await window.terminalAPI.updateSettings(patch);
+  settingsPreviewBaseline = null;
+  applySettingsToAllTabs();
+  renderTabStrip();
+  updateStatus();
+  closeSettingsPanel(false);
 }
 
 function nextTab(): void {
@@ -717,6 +815,7 @@ function bindSystemAppearanceEvents(): void {
 function applyStaticIcons(): void {
   ui.newTabButton.innerHTML = icon('plus', 14);
   ui.settingsButton.innerHTML = icon('gear', 14);
+  ui.settingsClose.innerHTML = icon('close', 14);
 }
 
 function bindKeyboardShortcuts(): void {
@@ -805,9 +904,17 @@ function bindKeyboardShortcuts(): void {
       return;
     }
 
-    if (event.key === 'Escape' && !ui.searchPanel.classList.contains('hidden')) {
-      event.preventDefault();
-      closeSearch();
+    if (event.key === 'Escape') {
+      if (isSettingsOpen()) {
+        event.preventDefault();
+        closeSettingsPanel(true);
+        return;
+      }
+
+      if (!ui.searchPanel.classList.contains('hidden')) {
+        event.preventDefault();
+        closeSearch();
+      }
     }
   });
 }
@@ -826,14 +933,67 @@ function bindUI(): void {
   ui.searchPrev.addEventListener('click', () => runSearch(false));
   ui.searchClose.addEventListener('click', () => closeSearch());
 
-  ui.settingsForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    void saveSettingsFromForm().then(() => ui.settingsDialog.close());
+  ui.settingThemeSwatches.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const swatch = target.closest<HTMLButtonElement>('.theme-swatch');
+    const theme = swatch?.dataset.theme;
+    if (!swatch || !theme) {
+      return;
+    }
+
+    if (ui.settingTheme.value !== theme) {
+      ui.settingTheme.value = theme;
+      syncThemeSwatches();
+      previewSettingsFromForm();
+    }
   });
 
-  ui.settingsForm.addEventListener('reset', (event) => {
+  const onSettingsFormChange = (event: Event): void => {
+    if (!isSettingsOpen()) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target instanceof HTMLInputElement && target.type === 'range') {
+      setRangeFill(target);
+    }
+
+    if (target === ui.settingTheme) {
+      syncThemeSwatches();
+    }
+
+    previewSettingsFromForm();
+  };
+  ui.settingsForm.addEventListener('input', onSettingsFormChange);
+  ui.settingsForm.addEventListener('change', onSettingsFormChange);
+
+  ui.settingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
-    ui.settingsDialog.close();
+    void saveSettingsFromForm();
+  });
+
+  ui.settingsSave.addEventListener('click', () => {
+    void saveSettingsFromForm();
+  });
+
+  ui.settingsCancel.addEventListener('click', () => {
+    closeSettingsPanel(true);
+  });
+
+  ui.settingsClose.addEventListener('click', () => {
+    closeSettingsPanel(true);
+  });
+
+  ui.settingsScrim.addEventListener('click', () => {
+    closeSettingsPanel(true);
   });
 
   ui.tabStrip.addEventListener('scroll', () => {

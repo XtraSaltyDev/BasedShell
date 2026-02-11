@@ -38,83 +38,105 @@
       <button id="search-close">Close</button>
     </div>
 
-    <dialog id="settings-dialog" aria-label="Terminal settings">
-      <form id="settings-form" method="dialog">
-        <h2>Terminal Settings</h2>
+    <div id="settings-scrim" class="settings-scrim hidden" aria-hidden="true"></div>
+    <aside id="settings-panel" class="settings-panel" aria-label="Terminal settings" aria-hidden="true">
+      <header class="settings-panel-header">
+        <h2>Settings</h2>
+        <button id="settings-close" class="icon-button" type="button" aria-label="Close settings panel"></button>
+      </header>
 
-        <label>
-          Font family
-          <input id="setting-font-family" type="text" />
-        </label>
+      <form id="settings-form" class="settings-form">
+        <section class="settings-section">
+          <h3>Appearance</h3>
 
-        <label>
-          Font size
-          <input id="setting-font-size" type="number" min="10" max="28" step="1" />
-        </label>
+          <label>
+            Theme
+            <div id="setting-theme-swatches" class="theme-swatches">
+              <button type="button" class="theme-swatch" data-theme="system">System</button>
+              <button type="button" class="theme-swatch" data-theme="graphite">Graphite</button>
+              <button type="button" class="theme-swatch" data-theme="midnight">Midnight</button>
+              <button type="button" class="theme-swatch" data-theme="solarized-dark">Solarized</button>
+              <button type="button" class="theme-swatch" data-theme="paper">Paper</button>
+              <button type="button" class="theme-swatch" data-theme="aurora">Aurora</button>
+              <button type="button" class="theme-swatch" data-theme="noir">Noir</button>
+              <button type="button" class="theme-swatch" data-theme="fog">Fog</button>
+            </div>
+            <select id="setting-theme">
+              <option value="system">System</option>
+              <option value="graphite">Graphite</option>
+              <option value="midnight">Midnight</option>
+              <option value="solarized-dark">Solarized Dark</option>
+              <option value="paper">Paper</option>
+              <option value="aurora">Aurora</option>
+              <option value="noir">Noir</option>
+              <option value="fog">Fog</option>
+            </select>
+          </label>
 
-        <label>
-          Line height
-          <input id="setting-line-height" type="number" min="1" max="2" step="0.05" />
-        </label>
+          <label>
+            Appearance
+            <select id="setting-appearance">
+              <option value="system">System</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </label>
 
-        <label>
-          Scrollback lines
-          <input id="setting-scrollback" type="number" min="1000" max="200000" step="1000" />
-        </label>
+          <label>
+            Background opacity
+            <input id="setting-opacity" type="range" min="0.6" max="1" step="0.01" />
+          </label>
+        </section>
 
-        <label>
-          Background opacity
-          <input id="setting-opacity" type="number" min="0.6" max="1" step="0.01" />
-        </label>
+        <section class="settings-section">
+          <h3>Terminal</h3>
 
-        <label>
-          Theme
-          <select id="setting-theme">
-            <option value="system">System</option>
-            <option value="graphite">Graphite</option>
-            <option value="midnight">Midnight</option>
-            <option value="solarized-dark">Solarized Dark</option>
-            <option value="paper">Paper</option>
-            <option value="aurora">Aurora</option>
-            <option value="noir">Noir</option>
-            <option value="fog">Fog</option>
-          </select>
-        </label>
+          <label>
+            Font family
+            <input id="setting-font-family" type="text" />
+          </label>
 
-        <label>
-          Appearance
-          <select id="setting-appearance">
-            <option value="system">System</option>
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-        </label>
+          <label>
+            Font size
+            <input id="setting-font-size" type="range" min="10" max="28" step="1" />
+          </label>
 
-        <label>
-          Cursor style
-          <select id="setting-cursor-style">
-            <option value="block">Block</option>
-            <option value="bar">Bar</option>
-            <option value="underline">Underline</option>
-          </select>
-        </label>
+          <label>
+            Line height
+            <input id="setting-line-height" type="range" min="1" max="2" step="0.05" />
+          </label>
 
-        <label class="checkbox-wrap">
-          <input id="setting-vibrancy" type="checkbox" />
-          Vibrancy (macOS)
-        </label>
+          <label>
+            Cursor style
+            <select id="setting-cursor-style">
+              <option value="block">Block</option>
+              <option value="bar">Bar</option>
+              <option value="underline">Underline</option>
+            </select>
+          </label>
 
-        <label class="checkbox-wrap">
-          <input id="setting-cursor-blink" type="checkbox" />
-          Cursor blink
-        </label>
+          <label class="toggle-row">
+            <span>Cursor blink</span>
+            <input id="setting-cursor-blink" type="checkbox" />
+          </label>
 
-        <menu>
-          <button id="settings-cancel" type="reset">Cancel</button>
-          <button id="settings-save" type="submit">Save</button>
-        </menu>
+          <label>
+            Scrollback lines
+            <input id="setting-scrollback" type="number" min="1000" max="200000" step="1000" />
+          </label>
+
+          <label class="toggle-row">
+            <span>Vibrancy (macOS)</span>
+            <input id="setting-vibrancy" type="checkbox" />
+          </label>
+        </section>
       </form>
-    </dialog>
+
+      <footer class="settings-panel-footer">
+        <button id="settings-cancel" type="button">Cancel</button>
+        <button id="settings-save" type="button">Save</button>
+      </footer>
+    </aside>
 
     <script type="module" src="./main.ts"></script>
   </body>
