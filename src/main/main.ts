@@ -113,6 +113,7 @@ function openSettingsWindow(): void {
     visualEffectState: useVibrancy ? 'active' : undefined,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: process.platform === 'darwin' ? { x: 14, y: 14 } : undefined,
+    acceptFirstMouse: true,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
@@ -210,6 +211,7 @@ function createMainWindow(settings: AppSettings): BrowserWindow {
     visualEffectState: useVibrancy ? 'active' : undefined,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: process.platform === 'darwin' ? { x: 14, y: 14 } : undefined,
+    acceptFirstMouse: true,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,

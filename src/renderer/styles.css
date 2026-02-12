@@ -37,6 +37,17 @@ body {
   padding: var(--space-2) var(--space-3) var(--space-2) var(--size-topbar-padding-left);
   border-bottom: var(--size-border-default) solid var(--topbar-border);
   background: var(--topbar-bg);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+#topbar-controls,
+#topbar-controls *,
+#search-inline,
+#search-inline *,
+.tab,
+.tab * {
+  -webkit-app-region: no-drag;
 }
 
 #tab-strip {
@@ -336,6 +347,149 @@ body {
 .terminal-pane.active {
   opacity: 1;
   pointer-events: auto;
+}
+
+.terminal-pane > .pane-leaf,
+.terminal-pane > .pane-split {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-split {
+  display: flex;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-split-vertical {
+  flex-direction: row;
+}
+
+.pane-split-horizontal {
+  flex-direction: column;
+}
+
+.pane-branch {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-branch > .pane-leaf,
+.pane-branch > .pane-split,
+.pane-branch > .pane-missing {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-branch-first,
+.pane-branch-second {
+  flex: 1 1 0;
+}
+
+.pane-leaf {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  border: var(--size-border-default) solid color-mix(in srgb, var(--color-border-subtle) 80%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-surface) 84%, var(--color-bg-base));
+  overflow: hidden;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.pane-leaf.active {
+  border-color: color-mix(in srgb, var(--color-accent) 72%, var(--color-border-subtle));
+}
+
+.pane-leaf.unread {
+  border-color: color-mix(in srgb, var(--color-info) 45%, var(--color-border-subtle));
+}
+
+.pane-leaf.exited {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-danger) 7%, var(--color-bg-surface));
+}
+
+.pane-leaf:focus-within {
+  border-color: color-mix(in srgb, var(--color-focus-ring) 75%, var(--color-border-subtle));
+}
+
+.pane-viewport {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-missing {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border: var(--size-border-default) dashed color-mix(in srgb, var(--color-danger) 55%, var(--color-border-subtle));
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--type-sm);
+  letter-spacing: var(--tracking-wide);
+}
+
+.pane-divider {
+  position: relative;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-border-subtle) 85%, transparent);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.pane-divider::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.pane-divider:hover::after,
+.pane-divider:active::after {
+  opacity: 1;
+}
+
+.pane-divider-vertical {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.pane-divider-vertical::after {
+  width: 2px;
+  height: 65%;
+}
+
+.pane-divider-horizontal {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.pane-divider-horizontal::after {
+  width: 65%;
+  height: 2px;
+}
+
+.pane-divider:focus-visible {
+  outline: var(--size-focus-outline) solid var(--color-focus-ring);
+  outline-offset: var(--size-focus-offset);
 }
 
 #statusbar {
