@@ -1,91 +1,83 @@
 :root {
   /* Primitive palette */
-  --primitive-gray-950: #0b0e14;
-  --primitive-gray-900: #0f1320;
-  --primitive-gray-850: #151a2b;
-  --primitive-gray-800: #1b2036;
-  --primitive-gray-750: #232944;
-  --primitive-gray-700: #303855;
-  --primitive-gray-600: #3d4666;
-  --primitive-gray-500: #525d80;
-  --primitive-gray-400: #64748b;
-  --primitive-gray-300: #9ca3af;
-  --primitive-gray-200: #b7bdc8;
-  --primitive-gray-100: #d1d5db;
-  --primitive-gray-50: #e5e7eb;
-  --primitive-gray-25: #f3f4f6;
+  --primitive-gray-950: #0b0d12;
+  --primitive-gray-900: #111317;
+  --primitive-gray-850: #151b26;
+  --primitive-gray-800: #1a1f2b;
+  --primitive-gray-750: #1f2736;
+  --primitive-gray-700: #252e3f;
+  --primitive-gray-600: #2d3447;
+  --primitive-gray-500: #3b4a63;
+  --primitive-gray-400: #4d5f7a;
+  --primitive-gray-300: #6b7d9b;
+  --primitive-gray-200: #8c95ab;
+  --primitive-gray-100: #b0b8cc;
+  --primitive-gray-50: #d7deef;
+  --primitive-gray-25: #eaf0ff;
 
-  --primitive-green-500: #22c55e;
-  --primitive-green-400: #4ade80;
-  --primitive-green-300: #86efac;
-  --primitive-green-200: #bbf7d0;
-  --primitive-green-600: #16a34a;
-  --primitive-green-700: #15803d;
-  --primitive-green-800: #166534;
+  --primitive-green-500: #54d2a1;
+  --primitive-green-400: #6fd3af;
+  --primitive-green-300: #97ecc0;
+  --primitive-green-200: #bef5da;
+  --primitive-green-600: #3d8268;
+  --primitive-green-700: #1d3f34;
+  --primitive-green-800: #0f2a22;
 
-  --primitive-red-500: #ef4444;
-  --primitive-red-400: #f87171;
-  --primitive-red-600: #dc2626;
-  --primitive-red-700: #991b1b;
+  --primitive-red-500: #f16d7e;
+  --primitive-red-400: #ff9bb0;
+  --primitive-red-600: #c94d5e;
+  --primitive-red-700: #7a2a35;
 
-  --primitive-blue-500: #6366f1;
-  --primitive-blue-400: #818cf8;
-  --primitive-blue-600: #4f46e5;
+  --primitive-blue-500: #75a7f0;
+  --primitive-blue-400: #94bbff;
+  --primitive-blue-600: #4a7dd4;
 
-  --primitive-yellow-500: #f59e0b;
-  --primitive-yellow-400: #fbbf24;
+  --primitive-yellow-500: #f4d68c;
+  --primitive-yellow-400: #ffe6ad;
 
-  --primitive-purple-500: #8b5cf6;
-  --primitive-purple-400: #a78bfa;
+  --primitive-purple-500: #b89bf6;
+  --primitive-purple-400: #cab3ff;
 
-  --primitive-cyan-500: #22d3ee;
-  --primitive-cyan-400: #67e8f9;
+  --primitive-cyan-500: #72d4e5;
+  --primitive-cyan-400: #94ecfc;
 
   /* Semantic color tokens */
   --color-bg-base: var(--primitive-gray-950);
   --color-bg-surface: var(--primitive-gray-900);
   --color-bg-elevated: var(--primitive-gray-800);
-  --color-bg-overlay: rgba(27, 32, 54, 0.96);
+  --color-bg-overlay: rgba(15, 18, 28, 0.95);
   --color-bg-inset: var(--primitive-gray-850);
-  --color-bg-chrome: var(--primitive-gray-850);
 
-  --color-border-default: rgba(255, 255, 255, 0.08);
-  --color-border-subtle: rgba(255, 255, 255, 0.05);
-  --color-border-strong: rgba(255, 255, 255, 0.15);
-  --color-border-accent: rgba(139, 92, 246, 0.35);
+  --color-border-default: var(--primitive-gray-600);
+  --color-border-subtle: var(--primitive-gray-700);
+  --color-border-strong: var(--primitive-gray-500);
+  --color-border-accent: rgba(107, 203, 168, 0.35);
 
   --color-text-primary: var(--primitive-gray-50);
-  --color-text-secondary: #9ca3af;
-  --color-text-muted: #64748b;
+  --color-text-secondary: var(--primitive-gray-200);
+  --color-text-muted: var(--primitive-gray-300);
   --color-text-disabled: var(--primitive-gray-400);
   --color-text-inverse: var(--primitive-gray-950);
 
-  --color-accent: #8b5cf6;
-  --color-accent-hover: #a78bfa;
-  --color-accent-muted: rgba(139, 92, 246, 0.24);
-  --color-accent-subtle: rgba(139, 92, 246, 0.12);
-  --color-accent-tint: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  --color-accent-glow: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  --color-accent: var(--primitive-green-500);
+  --color-accent-hover: var(--primitive-green-400);
+  --color-accent-muted: var(--primitive-green-700);
+  --color-accent-subtle: var(--primitive-green-800);
   --color-danger: var(--primitive-red-500);
   --color-danger-hover: var(--primitive-red-400);
-  --color-danger-muted: rgba(239, 68, 68, 0.22);
-  --color-warning: #f59e0b;
-  --color-info: #8b5cf6;
+  --color-danger-muted: var(--primitive-red-700);
+  --color-warning: var(--primitive-yellow-500);
+  --color-info: var(--primitive-blue-500);
   --color-success: var(--primitive-green-500);
 
-  --color-focus-ring: rgba(139, 92, 246, 0.55);
+  --color-focus-ring: rgba(84, 210, 161, 0.5);
 
   /* Shadow tokens */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 8px var(--color-accent-glow);
+  --shadow-glow: 0 0 12px rgba(84, 210, 161, 0.15);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  --shadow-panel: -8px 0 28px rgba(0, 0, 0, 0.3);
-
-  --overlay-terminal-dim: rgba(0, 0, 0, 0.25);
-  --overlay-scrim: rgba(0, 0, 0, 0.36);
-  --overlay-scrim-strong: rgba(0, 0, 0, 0.42);
 
   /* Typography */
   --font-ui: 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
@@ -190,22 +182,22 @@
   --tab-border-idle: var(--color-border-subtle);
   --tab-border-active: var(--color-border-strong);
   --tab-indicator: var(--color-accent);
-  --tab-close-hover: rgba(255, 255, 255, 0.06);
+  --tab-close-hover: rgba(255, 255, 255, 0.08);
 
-  --topbar-bg: var(--color-bg-chrome);
-  --topbar-border: var(--color-border-subtle);
+  --topbar-bg: linear-gradient(180deg, var(--primitive-gray-800) 0%, var(--primitive-gray-850) 100%);
+  --topbar-border: var(--color-border-default);
 
-  --statusbar-bg: var(--color-bg-chrome);
-  --statusbar-border: var(--color-border-subtle);
+  --statusbar-bg: var(--primitive-gray-900);
+  --statusbar-border: var(--color-border-default);
   --statusbar-fg: var(--color-text-muted);
 
-  --panel-bg: var(--color-bg-elevated);
+  --panel-bg: var(--primitive-gray-900);
   --panel-border: var(--color-border-default);
 
-  --search-bg: var(--color-bg-elevated);
+  --search-bg: var(--color-bg-overlay);
   --search-border: var(--color-border-strong);
-  --search-match: rgba(139, 92, 246, 0.2);
-  --search-match-active: rgba(139, 92, 246, 0.34);
+  --search-match: rgba(84, 210, 161, 0.25);
+  --search-match-active: rgba(84, 210, 161, 0.5);
 
   --input-bg: var(--primitive-gray-950);
   --input-border: var(--color-border-default);

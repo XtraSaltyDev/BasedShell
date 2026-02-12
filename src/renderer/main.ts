@@ -6,7 +6,6 @@ import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import type {
   AppSettings,
   AppearanceMode,
-  FullTheme,
   CursorStyle,
   GitStatus,
   MenuAction,
@@ -18,7 +17,6 @@ import type {
   WorkspacePreset,
   WorkspaceStartupTab
 } from '../shared/types';
-import { THEME_META } from '../shared/theme-meta';
 import { applyThemeChrome, resolveThemeState, type ResolvedThemeState } from './themes';
 import { icon } from './icons';
 import {
@@ -26,23 +24,6 @@ import {
   type CommandPaletteAction,
   type CommandPaletteController
 } from './command-palette';
-import {
-  type ShellCommandReport,
-  type SmartHistoryEntry,
-  type TaskPreset,
-  loadSmartHistory,
-  loadTaskPresets,
-  saveSmartHistory,
-  saveTaskPresets,
-  sortHistoryForPalette,
-  sortTasksForPalette,
-  toggleHistoryFavorite,
-  toggleTaskFavorite,
-  touchTaskRun,
-  upsertSmartHistoryEntry,
-  findLastFailedHistory,
-  extractShellCommandReports
-} from './productivity';
 import { createToastManager } from './toast';
 import './tokens.css';
 import './styles.css';
@@ -70,7 +51,6 @@ interface TabState {
   searchResultIndex: number;
   searchResultCount: number;
   profileCardId: string;
-  shellMetadataBuffer: string;
   outputPulseTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -90,27 +70,6 @@ interface CreateTabOptions {
   startupCommand?: string;
 }
 
-type DropSide = 'before' | 'after';
-
-interface TabDragState {
-  draggingTabId: string | null;
-  overTabId: string | null;
-  side: DropSide | null;
-  moved: boolean;
-  suppressClick: boolean;
-}
-
-interface RgbColor {
-  r: number;
-  g: number;
-  b: number;
-}
-
-interface ReleaseGateIssue {
-  scope: string;
-  message: string;
-}
-
 const dom = {
   tabStrip: document.querySelector<HTMLDivElement>('#tab-strip'),
   newTabButton: document.querySelector<HTMLButtonElement>('#new-tab-button'),
@@ -118,7 +77,6 @@ const dom = {
   searchButton: document.querySelector<HTMLButtonElement>('#search-button'),
   searchInline: document.querySelector<HTMLDivElement>('#search-inline'),
   terminalHost: document.querySelector<HTMLDivElement>('#terminal-host'),
-  statusbar: document.querySelector<HTMLElement>('#statusbar'),
   statusLeft: document.querySelector<HTMLDivElement>('#status-left'),
   statusRight: document.querySelector<HTMLDivElement>('#status-right'),
   statusShell: document.querySelector<HTMLButtonElement>('#status-shell'),
@@ -195,16 +153,6 @@ let gitPollTimer: ReturnType<typeof setInterval> | undefined;
 let lastCommandContext: CommandContext | null = null;
 let editingWorkspaceId = '';
 let editingProfileCardId = '';
-let taskPresets: TaskPreset[] = [];
-let smartHistory: SmartHistoryEntry[] = [];
-const tabDragState: TabDragState = {
-  draggingTabId: null,
-  overTabId: null,
-  side: null,
-  moved: false,
-  suppressClick: false
-};
-const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function assertDom<T>(value: T | null, id: string): T {
   if (!value) {
@@ -221,7 +169,6 @@ const ui = {
   searchButton: assertDom(dom.searchButton, '#search-button'),
   searchInline: assertDom(dom.searchInline, '#search-inline'),
   terminalHost: assertDom(dom.terminalHost, '#terminal-host'),
-  statusbar: assertDom(dom.statusbar, '#statusbar'),
   statusLeft: assertDom(dom.statusLeft, '#status-left'),
   statusRight: assertDom(dom.statusRight, '#status-right'),
   statusShell: assertDom(dom.statusShell, '#status-shell'),
@@ -292,10 +239,6 @@ function clamp(value: number, min: number, max: number): number {
 
 function setSurfaceOpacity(opacity: number): void {
   document.documentElement.style.setProperty('--surface-opacity', opacity.toFixed(2));
-}
-
-function syncReducedMotionFlag(): void {
-  document.body.dataset.reducedMotion = prefersReducedMotion() ? 'true' : 'false';
 }
 
 function refreshResolvedTheme(): void {
@@ -559,216 +502,13 @@ function reconcileTabTitles(): boolean {
   return anyUpdated;
 }
 
-function tabIndex(tabId: string): number {
-  return tabOrder.findIndex((candidate) => candidate === tabId);
-}
-
-function tabElementById(tabId: string): HTMLDivElement | null {
-  return ui.tabStrip.querySelector<HTMLDivElement>(`.tab[data-tab-id="${tabId}"]`);
-}
-
-function prefersReducedMotion(): boolean {
-  return reducedMotionQuery.matches;
-}
-
-function focusTabElement(tabId: string): void {
-  const element = tabElementById(tabId);
-  if (!element) {
-    return;
-  }
-
-  element.focus({ preventScroll: true });
-  element.scrollIntoView({
-    block: 'nearest',
-    inline: 'nearest',
-    behavior: prefersReducedMotion() ? 'auto' : 'smooth'
-  });
-}
-
-function clearTabDragState(): void {
-  tabDragState.draggingTabId = null;
-  tabDragState.overTabId = null;
-  tabDragState.side = null;
-  tabDragState.moved = false;
-  ui.tabStrip.classList.remove('tab-dragging');
-}
-
-function reorderTabOrder(draggingTabId: string, targetTabId: string, side: DropSide): boolean {
-  if (draggingTabId === targetTabId) {
-    return false;
-  }
-
-  const fromIndex = tabIndex(draggingTabId);
-  const targetIndex = tabIndex(targetTabId);
-  if (fromIndex < 0 || targetIndex < 0) {
-    return false;
-  }
-
-  const next = tabOrder.slice();
-  next.splice(fromIndex, 1);
-
-  let insertIndex = targetIndex;
-  if (fromIndex < targetIndex) {
-    insertIndex -= 1;
-  }
-  if (side === 'after') {
-    insertIndex += 1;
-  }
-  insertIndex = clamp(insertIndex, 0, next.length);
-
-  if (next[insertIndex] === draggingTabId) {
-    return false;
-  }
-
-  next.splice(insertIndex, 0, draggingTabId);
-  tabOrder = next;
-  tabDragState.overTabId = targetTabId;
-  tabDragState.side = side;
-  tabDragState.moved = true;
-  renderTabStrip();
-  syncCommandPaletteActions();
-  updateStatus();
-  return true;
-}
-
-function dropSideForEvent(event: DragEvent, element: HTMLElement): DropSide {
-  const rect = element.getBoundingClientRect();
-  return event.clientX > rect.left + rect.width / 2 ? 'after' : 'before';
-}
-
-function handleTabDragStart(event: DragEvent, tabId: string): void {
-  if (!event.dataTransfer) {
-    return;
-  }
-
-  tabDragState.draggingTabId = tabId;
-  tabDragState.overTabId = null;
-  tabDragState.side = null;
-  tabDragState.moved = false;
-
-  event.dataTransfer.effectAllowed = 'move';
-  event.dataTransfer.setData('text/plain', tabId);
-  ui.tabStrip.classList.add('tab-dragging');
-}
-
-function handleTabDragOver(event: DragEvent, tabId: string, element: HTMLDivElement): void {
-  if (!tabDragState.draggingTabId) {
-    return;
-  }
-
-  event.preventDefault();
-  const side = dropSideForEvent(event, element);
-  if (
-    tabDragState.overTabId === tabId &&
-    tabDragState.side === side &&
-    tabDragState.draggingTabId !== tabId
-  ) {
-    return;
-  }
-
-  if (tabDragState.draggingTabId === tabId) {
-    tabDragState.overTabId = tabId;
-    tabDragState.side = side;
-    renderTabStrip();
-    return;
-  }
-
-  void reorderTabOrder(tabDragState.draggingTabId, tabId, side);
-}
-
-function handleTabDrop(event: DragEvent): void {
-  if (!tabDragState.draggingTabId) {
-    return;
-  }
-
-  event.preventDefault();
-}
-
-function handleTabDragEnd(): void {
-  tabDragState.suppressClick = tabDragState.moved;
-  clearTabDragState();
-  renderTabStrip();
-  updateTabStripOverflow();
-  setTimeout(() => {
-    tabDragState.suppressClick = false;
-  }, 0);
-}
-
-function focusNeighborTab(tabId: string, direction: -1 | 1): void {
-  const currentIndex = tabIndex(tabId);
-  if (currentIndex < 0 || tabOrder.length < 2) {
-    return;
-  }
-
-  const nextIndex = (currentIndex + direction + tabOrder.length) % tabOrder.length;
-  const nextTabId = tabOrder[nextIndex];
-  if (!nextTabId) {
-    return;
-  }
-
-  activateTab(nextTabId, { focusTerminal: false });
-  focusTabElement(nextTabId);
-}
-
-function focusBoundaryTab(target: 'first' | 'last'): void {
-  const tabId = target === 'first' ? tabOrder[0] : tabOrder[tabOrder.length - 1];
-  if (!tabId) {
-    return;
-  }
-
-  activateTab(tabId, { focusTerminal: false });
-  focusTabElement(tabId);
-}
-
-function handleTabKeydown(event: KeyboardEvent, tabId: string): void {
-  if (event.metaKey || event.ctrlKey || event.altKey) {
-    return;
-  }
-
-  switch (event.key) {
-    case 'ArrowLeft':
-      event.preventDefault();
-      focusNeighborTab(tabId, -1);
-      return;
-    case 'ArrowRight':
-      event.preventDefault();
-      focusNeighborTab(tabId, 1);
-      return;
-    case 'Home':
-      event.preventDefault();
-      focusBoundaryTab('first');
-      return;
-    case 'End':
-      event.preventDefault();
-      focusBoundaryTab('last');
-      return;
-    case 'Delete':
-      event.preventDefault();
-      void closeTab(tabId).then(() => {
-        if (activeTabId) {
-          focusTabElement(activeTabId);
-        } else {
-          ui.newTabButton.focus();
-        }
-      });
-      return;
-    case 'Enter':
-    case ' ':
-      event.preventDefault();
-      activateTab(tabId);
-      return;
-    default:
-      return;
-  }
-}
-
-function createTabElement(tabId: string): HTMLDivElement {
-  const element = document.createElement('div');
-  element.className = 'tab';
-  element.dataset.tabId = tabId;
-  element.setAttribute('role', 'tab');
-  element.id = `tab-${tabId}`;
-  element.draggable = true;
+function createTabElement(tabId: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tab';
+  button.dataset.tabId = tabId;
+  button.setAttribute('role', 'tab');
+  button.id = `tab-${tabId}`;
 
   const dot = document.createElement('span');
   dot.className = 'tab-indicator-dot';
@@ -782,45 +522,23 @@ function createTabElement(tabId: string): HTMLDivElement {
   close.className = 'tab-close';
   close.title = 'Close tab';
   close.setAttribute('aria-label', 'Close tab');
-  close.tabIndex = -1;
-  close.draggable = false;
   close.innerHTML = icon('close', 12);
 
-  element.addEventListener('click', () => {
-    if (tabDragState.suppressClick) {
-      return;
-    }
-
-    activateTab(tabId);
-  });
-  element.addEventListener('keydown', (event) => handleTabKeydown(event, tabId));
-  element.addEventListener('dragstart', (event) => handleTabDragStart(event, tabId));
-  element.addEventListener('dragover', (event) => handleTabDragOver(event, tabId, element));
-  element.addEventListener('drop', handleTabDrop);
-  element.addEventListener('dragend', handleTabDragEnd);
-
+  button.addEventListener('click', () => activateTab(tabId));
   close.addEventListener('click', (event) => {
     event.stopPropagation();
     void closeTab(tabId);
   });
 
-  element.append(dot, title, close);
-  return element;
+  button.append(dot, title, close);
+  return button;
 }
 
-function updateTabElement(element: HTMLDivElement, tab: TabState, isActive: boolean, position: number, total: number): void {
+function updateTabElement(element: HTMLButtonElement, tab: TabState, isActive: boolean): void {
   element.classList.toggle('active', isActive);
   element.classList.toggle('exit', tab.exited);
-  element.classList.toggle('drag-source', tabDragState.draggingTabId === tab.id);
-  element.classList.toggle('drag-over-before', tabDragState.overTabId === tab.id && tabDragState.side === 'before');
-  element.classList.toggle('drag-over-after', tabDragState.overTabId === tab.id && tabDragState.side === 'after');
   element.setAttribute('aria-selected', String(isActive));
   element.setAttribute('aria-controls', `panel-${tab.id}`);
-  element.setAttribute('tabindex', isActive ? '0' : '-1');
-  element.setAttribute('aria-posinset', String(position + 1));
-  element.setAttribute('aria-setsize', String(total));
-  const stateSuffix = tab.exited ? ' (exited)' : tab.hasUnreadOutput && !isActive ? ' (unread output)' : '';
-  element.setAttribute('aria-label', `${tab.title}${stateSuffix}`);
   element.title = tab.titleTooltip;
 
   const title = element.querySelector<HTMLSpanElement>('.tab-title');
@@ -838,11 +556,6 @@ function updateTabElement(element: HTMLDivElement, tab: TabState, isActive: bool
     } else if (tab.hasUnreadOutput) {
       dot.classList.add('unread');
     }
-  }
-
-  const close = element.querySelector<HTMLButtonElement>('.tab-close');
-  if (close) {
-    close.setAttribute('aria-label', `Close tab ${tab.title}`);
   }
 }
 
@@ -872,11 +585,10 @@ function startTabExitAnimation(tabId: string, element: HTMLElement): void {
 
 function renderTabStrip(): void {
   updateTabWidthClass();
-  ui.tabStrip.classList.toggle('tab-dragging', tabDragState.draggingTabId !== null);
 
-  const existingTabs = new Map<string, HTMLDivElement>();
+  const existingTabs = new Map<string, HTMLButtonElement>();
   for (const child of Array.from(ui.tabStrip.children)) {
-    const element = child as HTMLDivElement;
+    const element = child as HTMLButtonElement;
     const id = element.dataset.tabId;
     if (id) {
       existingTabs.set(id, element);
@@ -890,12 +602,8 @@ function renderTabStrip(): void {
     }
   }
 
-  let previousElement: HTMLDivElement | null = null;
-  for (let index = 0; index < tabOrder.length; index += 1) {
-    const tabId = tabOrder[index];
-    if (!tabId) {
-      continue;
-    }
+  let previousElement: HTMLButtonElement | null = null;
+  for (const tabId of tabOrder) {
     const tab = tabs.get(tabId);
     if (!tab) {
       continue;
@@ -915,7 +623,7 @@ function renderTabStrip(): void {
       );
     }
 
-    updateTabElement(element, tab, tabId === activeTabId, index, tabOrder.length);
+    updateTabElement(element, tab, tabId === activeTabId);
 
     const expectedNext: Element | null = previousElement
       ? previousElement.nextElementSibling
@@ -967,208 +675,7 @@ function formatDuration(durationMs: number): string {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-interface RgbaColor extends RgbColor {
-  a: number;
-}
-
-function parseCssColor(input: string): RgbaColor | null {
-  const value = input.trim();
-  if (!value) {
-    return null;
-  }
-
-  if (value.startsWith('#')) {
-    const hex = value.slice(1);
-    if (hex.length === 3 || hex.length === 4) {
-      const r = Number.parseInt(hex.slice(0, 1).repeat(2), 16);
-      const g = Number.parseInt(hex.slice(1, 2).repeat(2), 16);
-      const b = Number.parseInt(hex.slice(2, 3).repeat(2), 16);
-      const a = hex.length === 4 ? Number.parseInt(hex.slice(3, 4).repeat(2), 16) / 255 : 1;
-      if ([r, g, b, a].some((part) => Number.isNaN(part))) {
-        return null;
-      }
-      return { r, g, b, a };
-    }
-
-    if (hex.length === 6 || hex.length === 8) {
-      const r = Number.parseInt(hex.slice(0, 2), 16);
-      const g = Number.parseInt(hex.slice(2, 4), 16);
-      const b = Number.parseInt(hex.slice(4, 6), 16);
-      const a = hex.length === 8 ? Number.parseInt(hex.slice(6, 8), 16) / 255 : 1;
-      if ([r, g, b, a].some((part) => Number.isNaN(part))) {
-        return null;
-      }
-      return { r, g, b, a };
-    }
-  }
-
-  const rgbMatch = value.match(/^rgba?\(([^)]+)\)$/i);
-  if (!rgbMatch || !rgbMatch[1]) {
-    return null;
-  }
-
-  const parts = rgbMatch[1].split(',').map((part) => part.trim());
-  if (parts.length < 3) {
-    return null;
-  }
-
-  const r = Number(parts[0]);
-  const g = Number(parts[1]);
-  const b = Number(parts[2]);
-  const alphaRaw = parts[3];
-  const a = alphaRaw === undefined ? 1 : Number(alphaRaw);
-  if ([r, g, b, a].some((part) => Number.isNaN(part))) {
-    return null;
-  }
-
-  return {
-    r: clamp(Math.round(r), 0, 255),
-    g: clamp(Math.round(g), 0, 255),
-    b: clamp(Math.round(b), 0, 255),
-    a: clamp(a, 0, 1)
-  };
-}
-
-function blendColors(foreground: RgbaColor, background: RgbColor): RgbColor {
-  if (foreground.a >= 1) {
-    return {
-      r: foreground.r,
-      g: foreground.g,
-      b: foreground.b
-    };
-  }
-
-  const alpha = clamp(foreground.a, 0, 1);
-  return {
-    r: Math.round(foreground.r * alpha + background.r * (1 - alpha)),
-    g: Math.round(foreground.g * alpha + background.g * (1 - alpha)),
-    b: Math.round(foreground.b * alpha + background.b * (1 - alpha))
-  };
-}
-
-function relativeLuminance(color: RgbColor): number {
-  const convert = (channel: number): number => {
-    const normalized = clamp(channel, 0, 255) / 255;
-    if (normalized <= 0.03928) {
-      return normalized / 12.92;
-    }
-    return ((normalized + 0.055) / 1.055) ** 2.4;
-  };
-
-  const r = convert(color.r);
-  const g = convert(color.g);
-  const b = convert(color.b);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function contrastRatio(foreground: string, background: string): number | null {
-  const bg = parseCssColor(background);
-  const fg = parseCssColor(foreground);
-  if (!bg || !fg) {
-    return null;
-  }
-
-  const opaqueBackground = blendColors(bg, { r: 0, g: 0, b: 0 });
-  const opaqueForeground = blendColors(fg, opaqueBackground);
-  const l1 = relativeLuminance(opaqueForeground);
-  const l2 = relativeLuminance(opaqueBackground);
-  const light = Math.max(l1, l2);
-  const dark = Math.min(l1, l2);
-  return (light + 0.05) / (dark + 0.05);
-}
-
-function collectThemeContrastIssues(themeName: string, theme: FullTheme, issues: ReleaseGateIssue[]): void {
-  const chrome = theme.chrome;
-  const checks = [
-    { scope: `${themeName}:primary`, fg: chrome.textPrimary, bg: chrome.bgSurface, min: 4.5 },
-    { scope: `${themeName}:secondary`, fg: chrome.textSecondary, bg: chrome.bgSurface, min: 3 },
-    { scope: `${themeName}:tab-active`, fg: chrome.tabFgActive, bg: chrome.tabBgActive, min: 4.5 },
-    { scope: `${themeName}:tab-idle`, fg: chrome.tabFgIdle, bg: chrome.tabBgIdle, min: 3 },
-    { scope: `${themeName}:status`, fg: chrome.statusbarFg, bg: chrome.statusbarBg, min: 3 },
-    { scope: `${themeName}:input`, fg: chrome.inputFg, bg: chrome.inputBg, min: 4.5 }
-  ];
-
-  for (const check of checks) {
-    const ratio = contrastRatio(check.fg, check.bg);
-    if (ratio === null) {
-      issues.push({
-        scope: check.scope,
-        message: 'Unable to parse one or more colors for contrast verification.'
-      });
-      continue;
-    }
-
-    if (ratio < check.min) {
-      issues.push({
-        scope: check.scope,
-        message: `Contrast ${ratio.toFixed(2)} is below minimum ${check.min.toFixed(1)}.`
-      });
-    }
-  }
-}
-
-function measureTabRenderCost(): number {
-  const start = performance.now();
-  for (let iteration = 0; iteration < 20; iteration += 1) {
-    renderTabStrip();
-  }
-
-  return (performance.now() - start) / 20;
-}
-
-function runReleaseGateAudit(notify = false): ReleaseGateIssue[] {
-  const issues: ReleaseGateIssue[] = [];
-  const themeSelections = Object.keys(THEME_META) as ThemeSelection[];
-  for (const selection of themeSelections) {
-    const state = resolveThemeState(
-      {
-        ...settings,
-        theme: selection
-      },
-      systemAppearance
-    );
-    collectThemeContrastIssues(selection, state.theme, issues);
-  }
-
-  for (const appearance of ['dark', 'light'] as AppearanceMode[]) {
-    const state = resolveThemeState(
-      {
-        ...settings,
-        theme: 'system',
-        appearancePreference: appearance
-      },
-      systemAppearance
-    );
-    collectThemeContrastIssues(`system-${appearance}`, state.theme, issues);
-  }
-
-  const renderCostMs = measureTabRenderCost();
-  if (renderCostMs > 6) {
-    issues.push({
-      scope: 'tab-render',
-      message: `Average tab strip render cost is ${renderCostMs.toFixed(2)}ms (target <= 6ms).`
-    });
-  }
-
-  if (notify) {
-    if (issues.length === 0) {
-      toasts.show(`Release gate passed (${renderCostMs.toFixed(2)}ms avg tab render).`, 'success');
-    } else {
-      toasts.show(`Release gate found ${issues.length} issue(s). Check console for details.`, 'info', 0);
-    }
-  }
-
-  if (issues.length > 0) {
-    console.warn('[BasedShell] Release gate findings', issues);
-  }
-
-  return issues;
-}
-
-function setStatusSegmentState(
-  button: HTMLButtonElement,
-  state: 'idle' | 'info' | 'success' | 'warning' | 'danger'
-): void {
+function setStatusSegmentState(button: HTMLButtonElement, state: 'idle' | 'success' | 'warning' | 'danger'): void {
   button.dataset.state = state;
 }
 
@@ -1239,30 +746,8 @@ const themeCycleOrder: ThemeSelection[] = [
   'aurora',
   'noir',
   'fog',
-  'catppuccin-latte',
-  'catppuccin-frappe',
-  'catppuccin-macchiato',
-  'catppuccin-mocha'
+  'catppuccin'
 ];
-
-const THEME_LABELS: Record<ThemeSelection, string> = {
-  system: 'System',
-  graphite: 'Graphite',
-  midnight: 'Midnight',
-  'solarized-dark': 'Solarized Dark',
-  paper: 'Paper',
-  aurora: 'Aurora',
-  noir: 'Noir',
-  fog: 'Fog',
-  'catppuccin-latte': 'Catppuccin Latte',
-  'catppuccin-frappe': 'Catppuccin Frappe',
-  'catppuccin-macchiato': 'Catppuccin Macchiato',
-  'catppuccin-mocha': 'Catppuccin Mocha'
-};
-
-function themeLabel(theme: ThemeSelection): string {
-  return THEME_LABELS[theme];
-}
 
 async function cycleTheme(): Promise<void> {
   const currentIndex = themeCycleOrder.findIndex((theme) => theme === settings.theme);
@@ -1277,10 +762,7 @@ async function cycleTheme(): Promise<void> {
     applySettingsToAllTabs();
     renderTabStrip();
     updateStatus();
-    toasts.show(
-      `Theme: ${nextTheme === 'system' ? `System (${themeLabel(resolvedTheme.themeName)})` : themeLabel(nextTheme)}`,
-      'success'
-    );
+    toasts.show(`Theme: ${nextTheme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName}`, 'success');
   } catch {
     toasts.show('Failed to switch theme.', 'error', 0);
   }
@@ -1316,7 +798,7 @@ function updateStatus(): void {
       : 'No workspace configured.';
     setStatusSegmentState(ui.statusWorkspace, 'idle');
 
-    ui.statusTheme.textContent = themeLabel(resolvedTheme.themeName);
+    ui.statusTheme.textContent = resolvedTheme.themeName;
     ui.statusTheme.title = 'Theme';
     setStatusSegmentState(ui.statusTheme, 'idle');
     return;
@@ -1335,7 +817,7 @@ function updateStatus(): void {
   if (git) {
     ui.statusGit.textContent = git.dirty ? `${git.branch} *` : git.branch;
     ui.statusGit.title = `Git branch: ${git.branch}${git.dirty ? ' (dirty)' : ' (clean)'} · Click to refresh`;
-    setStatusSegmentState(ui.statusGit, git.dirty ? 'warning' : 'info');
+    setStatusSegmentState(ui.statusGit, git.dirty ? 'warning' : 'success');
   } else {
     ui.statusGit.textContent = 'No Repo';
     ui.statusGit.title = `No git repository detected for ${active.cwd}. Click to refresh.`;
@@ -1367,15 +849,14 @@ function updateStatus(): void {
     : 'No workspace configured.';
   setStatusSegmentState(ui.statusWorkspace, 'idle');
 
-  const resolvedLabel = themeLabel(resolvedTheme.themeName);
-  const selectedLabel = settings.theme === 'system' ? `System (${resolvedLabel})` : themeLabel(settings.theme);
-  ui.statusTheme.textContent = selectedLabel;
-  ui.statusTheme.title = `Theme: ${selectedLabel}. Click to cycle themes.`;
+  const themeLabel =
+    settings.theme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName;
+  ui.statusTheme.textContent = themeLabel;
+  ui.statusTheme.title = `Theme: ${themeLabel}. Click to cycle themes.`;
   setStatusSegmentState(ui.statusTheme, 'idle');
 }
 
-function activateTab(tabId: string, options: { focusTerminal?: boolean } = {}): void {
-  const focusTerminal = options.focusTerminal ?? true;
+function activateTab(tabId: string): void {
   const target = tabs.get(tabId);
   if (!target) {
     return;
@@ -1396,17 +877,7 @@ function activateTab(tabId: string, options: { focusTerminal?: boolean } = {}): 
   void refreshActiveGitStatus(false);
   const active = tabs.get(tabId);
   active?.fit.fit();
-  if (focusTerminal) {
-    active?.term.focus();
-  }
-  const tabElement = tabElementById(tabId);
-  if (tabElement) {
-    tabElement.scrollIntoView({
-      block: 'nearest',
-      inline: 'nearest',
-      behavior: prefersReducedMotion() ? 'auto' : 'smooth'
-    });
-  }
+  active?.term.focus();
   if (active) {
     window.terminalAPI.resizeSession({
       sessionId: active.sessionId,
@@ -1500,8 +971,7 @@ async function createTab(options: CreateTabOptions = {}): Promise<void> {
     hasRecentOutput: false,
     searchResultIndex: -1,
     searchResultCount: 0,
-    profileCardId: profileCard.id,
-    shellMetadataBuffer: ''
+    profileCardId: profileCard.id
   };
 
   tabs.set(tabId, tab);
@@ -1561,10 +1031,6 @@ async function closeTab(tabId: string): Promise<void> {
     return;
   }
 
-  const removedIndex = tabOrder.findIndex((id) => id === tabId);
-  const fallbackTabId =
-    removedIndex >= 0 ? (tabOrder[removedIndex + 1] ?? tabOrder[removedIndex - 1] ?? null) : null;
-
   clearOutputPulse(tab);
   clearTabSearch(tab);
   window.terminalAPI.closeSession(tab.sessionId);
@@ -1573,9 +1039,6 @@ async function closeTab(tabId: string): Promise<void> {
 
   tabs.delete(tabId);
   tabOrder = tabOrder.filter((id) => id !== tabId);
-  if (tabDragState.draggingTabId === tabId || tabDragState.overTabId === tabId) {
-    clearTabDragState();
-  }
 
   if (tabOrder.length === 0) {
     await createTab({
@@ -1585,7 +1048,7 @@ async function closeTab(tabId: string): Promise<void> {
   }
 
   if (activeTabId === tabId) {
-    const next = fallbackTabId && tabOrder.includes(fallbackTabId) ? fallbackTabId : tabOrder[Math.max(0, tabOrder.length - 1)];
+    const next = tabOrder[Math.max(0, tabOrder.length - 1)];
     if (next) {
       activateTab(next);
     }
@@ -1614,259 +1077,6 @@ function workspaceById(workspaceId: string | undefined): WorkspacePreset | undef
 
 function makeId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
-}
-
-function persistTaskPresets(): void {
-  saveTaskPresets(taskPresets);
-}
-
-function persistSmartHistory(): void {
-  saveSmartHistory(smartHistory);
-}
-
-function findProjectRootForCwd(cwd: string): string | null {
-  const normalized = normalizePath(cwd);
-  let best: string | null = null;
-
-  for (const status of gitStatusByCwd.values()) {
-    const root = normalizePath(status.root);
-    const isMatch = normalized === root || normalized.startsWith(`${root}/`);
-    if (!isMatch) {
-      continue;
-    }
-
-    if (!best || root.length > best.length) {
-      best = root;
-    }
-  }
-
-  return best;
-}
-
-function currentProjectRoot(): string | null {
-  const active = activeTab();
-  if (!active) {
-    return null;
-  }
-
-  return findProjectRootForCwd(active.cwd);
-}
-
-function groupLabelFromRoot(root: string): string {
-  const trimmed = normalizePath(root).replace(/\/+$/, '');
-  if (trimmed === '/') {
-    return '/';
-  }
-
-  const segments = trimmed.split('/').filter(Boolean);
-  return segments[segments.length - 1] || trimmed;
-}
-
-function runCommandInTerminal(command: string, preferredCwd?: string | null): void {
-  const trimmed = command.trim();
-  if (!trimmed) {
-    toasts.show('Command is empty.', 'info');
-    return;
-  }
-
-  const targetCwd = preferredCwd ? normalizePath(preferredCwd) : null;
-  const active = activeTab();
-  if (active) {
-    if (!targetCwd || active.cwd === targetCwd || active.cwd.startsWith(`${targetCwd}/`)) {
-      window.terminalAPI.writeToSession({
-        sessionId: active.sessionId,
-        data: `${trimmed}\r`
-      });
-      active.term.focus();
-      return;
-    }
-  }
-
-  void createTab({
-    profileCardId: defaultProfileCardForActiveWorkspace(),
-    cwd: targetCwd || active?.cwd || homeDirectory || '/',
-    startupCommand: trimmed
-  });
-}
-
-function runTaskPreset(task: TaskPreset, withArgs: boolean): void {
-  let command = task.command.trim();
-  if (!command) {
-    toasts.show(`Task "${task.name}" has no command.`, 'error', 0);
-    return;
-  }
-
-  if (withArgs) {
-    const args = window.prompt(`Additional args for "${task.name}"`, '');
-    if (args === null) {
-      return;
-    }
-
-    if (args.trim()) {
-      command = `${command} ${args.trim()}`;
-    }
-  }
-
-  runCommandInTerminal(command, task.preferredCwd || task.projectRoot);
-  taskPresets = touchTaskRun(taskPresets, task.id);
-  persistTaskPresets();
-  syncCommandPaletteActions();
-}
-
-async function createTaskPreset(scope: 'global' | 'project'): Promise<void> {
-  const active = activeTab();
-  let root = scope === 'project' ? currentProjectRoot() : null;
-  if (scope === 'project' && !root && active) {
-    try {
-      const status = await window.terminalAPI.getGitStatus(active.cwd);
-      if (status) {
-        const normalizedCwd = normalizePath(active.cwd);
-        root = normalizePath(status.root);
-        gitStatusByCwd.set(normalizedCwd, {
-          ...status,
-          fetchedAt: Date.now()
-        });
-        if (reconcileTabTitles()) {
-          renderTabStrip();
-        }
-        updateStatus();
-      }
-    } catch {
-      // Ignore git status fetch errors and fall back to scoped warning.
-    }
-  }
-
-  if (scope === 'project' && !root) {
-    toasts.show('Project task requires an active tab inside a git repository.', 'info');
-    return;
-  }
-
-  const defaultName = scope === 'project' ? 'Project Task' : 'Global Task';
-  const name = window.prompt('Task name', defaultName);
-  if (name === null) {
-    return;
-  }
-
-  const trimmedName = name.trim();
-  if (!trimmedName) {
-    toasts.show('Task name cannot be empty.', 'error', 0);
-    return;
-  }
-
-  const command = window.prompt('Task command', '');
-  if (command === null) {
-    return;
-  }
-
-  const trimmedCommand = command.trim();
-  if (!trimmedCommand) {
-    toasts.show('Task command cannot be empty.', 'error', 0);
-    return;
-  }
-
-  const next: TaskPreset = {
-    id: makeId('task'),
-    name: trimmedName,
-    command: trimmedCommand,
-    scope,
-    projectRoot: scope === 'project' ? root : null,
-    preferredCwd: active ? active.cwd : homeDirectory || '/',
-    favorite: false,
-    createdAt: Date.now(),
-    lastRunAt: null
-  };
-
-  taskPresets = [...taskPresets, next];
-  persistTaskPresets();
-  syncCommandPaletteActions();
-  toasts.show(`Saved task "${next.name}".`, 'success');
-}
-
-function deleteTaskPreset(taskId: string): void {
-  const target = taskPresets.find((task) => task.id === taskId);
-  if (!target) {
-    return;
-  }
-
-  const confirmed = window.confirm(`Delete task "${target.name}"?`);
-  if (!confirmed) {
-    return;
-  }
-
-  taskPresets = taskPresets.filter((task) => task.id !== taskId);
-  persistTaskPresets();
-  syncCommandPaletteActions();
-  toasts.show(`Deleted task "${target.name}".`, 'success');
-}
-
-function toggleTaskPresetFavorite(taskId: string): void {
-  const current = taskPresets.find((task) => task.id === taskId);
-  if (!current) {
-    return;
-  }
-
-  taskPresets = toggleTaskFavorite(taskPresets, taskId);
-  persistTaskPresets();
-  syncCommandPaletteActions();
-  toasts.show(current.favorite ? `Removed favorite from "${current.name}".` : `Favorited "${current.name}".`, 'success');
-}
-
-function toggleHistoryEntryFavorite(entryId: string): void {
-  const current = smartHistory.find((entry) => entry.id === entryId);
-  if (!current) {
-    return;
-  }
-
-  smartHistory = toggleHistoryFavorite(smartHistory, entryId);
-  persistSmartHistory();
-  syncCommandPaletteActions();
-  toasts.show(
-    current.favorite ? `Removed favorite from "${truncateMiddle(current.command, 42)}".` : `Favorited history command.`,
-    'success'
-  );
-}
-
-function recordShellCommandReport(tab: TabState, report: ShellCommandReport): void {
-  const command = report.command.trim();
-  if (!command) {
-    return;
-  }
-
-  const cwd = normalizePath(report.cwd || tab.cwd);
-  tab.cwd = cwd;
-  const projectRoot = findProjectRootForCwd(cwd);
-  const groupRoot = projectRoot ?? cwd;
-  const groupLabel = groupLabelFromRoot(groupRoot);
-  smartHistory = upsertSmartHistoryEntry(
-    smartHistory,
-    {
-      ...report,
-      command,
-      cwd
-    },
-    groupRoot,
-    groupLabel
-  );
-  persistSmartHistory();
-
-  tab.lastExitCode = report.exitCode;
-  tab.lastExitDurationMs = report.durationMs;
-  lastCommandContext = {
-    exitCode: report.exitCode,
-    durationMs: report.durationMs,
-    at: Date.now()
-  };
-}
-
-function rerunLastFailedCommand(): void {
-  const failed = findLastFailedHistory(smartHistory, currentProjectRoot());
-  if (!failed) {
-    toasts.show('No failed command found in history.', 'info');
-    return;
-  }
-
-  runCommandInTerminal(failed.command, failed.cwd);
-  toasts.show(`Re-running failed command from ${failed.groupLabel}.`, 'info');
 }
 
 function snapshotCurrentTabs(defaultProfileCardId: string): WorkspaceStartupTab[] {
@@ -1983,37 +1193,25 @@ function setSearchToggleState(button: HTMLButtonElement, pressed: boolean): void
   button.classList.toggle('active', pressed);
 }
 
-function rgbaFromHex(color: string, alpha: number): string | null {
-  const normalized = color.trim().replace('#', '');
-  const hex = normalized.length === 3 ? normalized.split('').map((char) => `${char}${char}`).join('') : normalized;
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
-    return null;
+function searchDecorations(): NonNullable<ISearchOptions['decorations']> {
+  if (resolvedTheme.appearance === 'light') {
+    return {
+      matchBackground: '#CDEBDF',
+      matchBorder: '#5EAE8A',
+      matchOverviewRuler: '#5EAE8A',
+      activeMatchBackground: '#89C9AC',
+      activeMatchBorder: '#2D7A5D',
+      activeMatchColorOverviewRuler: '#2D7A5D'
+    };
   }
 
-  const r = Number.parseInt(hex.slice(0, 2), 16);
-  const g = Number.parseInt(hex.slice(2, 4), 16);
-  const b = Number.parseInt(hex.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function alphaColor(color: string, alpha: number): string {
-  return rgbaFromHex(color, alpha) ?? color;
-}
-
-function searchDecorations(): NonNullable<ISearchOptions['decorations']> {
-  const accent = resolvedTheme.theme.chrome.accent;
-  const accentHover = resolvedTheme.theme.chrome.accentHover;
-  const matchBackground = alphaColor(accent, resolvedTheme.appearance === 'light' ? 0.16 : 0.2);
-  const activeMatchBackground = alphaColor(accent, resolvedTheme.appearance === 'light' ? 0.26 : 0.34);
-  const matchBorder = alphaColor(accentHover, resolvedTheme.appearance === 'light' ? 0.55 : 0.6);
-  const activeMatchBorder = alphaColor(accentHover, resolvedTheme.appearance === 'light' ? 0.78 : 0.9);
   return {
-    matchBackground,
-    matchBorder,
-    matchOverviewRuler: matchBorder,
-    activeMatchBackground,
-    activeMatchBorder,
-    activeMatchColorOverviewRuler: activeMatchBorder
+    matchBackground: '#2A4F42',
+    matchBorder: '#4AA97F',
+    matchOverviewRuler: '#4AA97F',
+    activeMatchBackground: '#3B7F64',
+    activeMatchBorder: '#6AD7A7',
+    activeMatchColorOverviewRuler: '#6AD7A7'
   };
 }
 
@@ -2704,34 +1902,6 @@ async function deleteProfileCard(profileCardId: string): Promise<void> {
   toasts.show(`Deleted ${target.name}.`, 'success');
 }
 
-function visibleTaskPresets(): TaskPreset[] {
-  const currentRoot = currentProjectRoot();
-  return sortTasksForPalette(
-    taskPresets.filter((task) => {
-      if (task.scope === 'global') {
-        return true;
-      }
-
-      if (!task.projectRoot || !currentRoot) {
-        return false;
-      }
-
-      return task.projectRoot === currentRoot;
-    })
-  );
-}
-
-function historyEntryMeta(entry: SmartHistoryEntry): string {
-  const exit =
-    entry.lastExitCode === null
-      ? 'Exit —'
-      : entry.lastExitCode === 0
-        ? 'Exit 0'
-        : `Exit ${entry.lastExitCode}`;
-  const duration = entry.lastDurationMs === null ? 'Duration —' : formatDuration(entry.lastDurationMs);
-  return `${entry.groupLabel} · ${exit} · ${duration} · ${entry.runCount} run${entry.runCount === 1 ? '' : 's'}`;
-}
-
 function commandPaletteActions(): CommandPaletteAction[] {
   const actions: CommandPaletteAction[] = [
     {
@@ -2829,90 +1999,8 @@ function commandPaletteActions(): CommandPaletteAction[] {
       description: 'Update active workspace startup tabs from current tabs',
       keywords: ['workspace', 'save', 'startup'],
       run: () => void saveCurrentTabsToWorkspace(settings.activeWorkspaceId)
-    },
-    {
-      id: 'qa-release-gate',
-      title: 'Run Release Gate QA',
-      description: 'Validate tab render performance and contrast across themes',
-      keywords: ['qa', 'release', 'a11y', 'contrast', 'performance'],
-      run: () => {
-        runReleaseGateAudit(true);
-      }
-    },
-    {
-      id: 'task-create-global',
-      title: 'Create Global Task',
-      description: 'Define a reusable command available in every project',
-      keywords: ['task', 'global', 'preset', 'command'],
-      run: () => createTaskPreset('global')
-    },
-    {
-      id: 'task-create-project',
-      title: 'Create Project Task',
-      description: 'Define a reusable command scoped to the current repository',
-      keywords: ['task', 'project', 'preset', 'command'],
-      run: () => createTaskPreset('project')
-    },
-    {
-      id: 'history-rerun-failed',
-      title: 'Re-run Last Failed Command',
-      description: 'Run the most recent command with non-zero exit code',
-      keywords: ['history', 'failed', 'rerun', 'retry'],
-      run: rerunLastFailedCommand
     }
   ];
-
-  for (const task of visibleTaskPresets()) {
-    const scope = task.scope === 'project' ? 'project' : 'global';
-    const iconPrefix = task.favorite ? '★ ' : '';
-    actions.push({
-      id: `task-run:${task.id}`,
-      title: `${iconPrefix}Run Task: ${task.name}`,
-      description: `${scope} · ${task.command}`,
-      keywords: ['task', task.name, scope, 'run'],
-      run: () => runTaskPreset(task, false)
-    });
-    actions.push({
-      id: `task-run-args:${task.id}`,
-      title: `Run Task With Args: ${task.name}`,
-      description: 'Prompt for additional command arguments',
-      keywords: ['task', task.name, 'args', 'run'],
-      run: () => runTaskPreset(task, true)
-    });
-    actions.push({
-      id: `task-favorite:${task.id}`,
-      title: task.favorite ? `Unfavorite Task: ${task.name}` : `Favorite Task: ${task.name}`,
-      description: 'Pin this task in smart task ordering',
-      keywords: ['task', task.name, 'favorite', 'pin'],
-      run: () => toggleTaskPresetFavorite(task.id)
-    });
-    actions.push({
-      id: `task-delete:${task.id}`,
-      title: `Delete Task: ${task.name}`,
-      description: 'Remove this task preset',
-      keywords: ['task', task.name, 'delete', 'remove'],
-      run: () => deleteTaskPreset(task.id)
-    });
-  }
-
-  const historyEntries = sortHistoryForPalette(smartHistory, currentProjectRoot()).slice(0, 12);
-  for (const entry of historyEntries) {
-    const iconPrefix = entry.favorite ? '★ ' : '';
-    actions.push({
-      id: `history-run:${entry.id}`,
-      title: `${iconPrefix}History: ${truncateMiddle(entry.command, 56)}`,
-      description: historyEntryMeta(entry),
-      keywords: ['history', 'command', 'rerun', entry.groupLabel],
-      run: () => runCommandInTerminal(entry.command, entry.cwd)
-    });
-    actions.push({
-      id: `history-favorite:${entry.id}`,
-      title: entry.favorite ? `Unfavorite History Command` : `Favorite History Command`,
-      description: truncateMiddle(entry.command, 72),
-      keywords: ['history', 'favorite', 'pin', 'command'],
-      run: () => toggleHistoryEntryFavorite(entry.id)
-    });
-  }
 
   for (let index = 0; index < tabOrder.length; index += 1) {
     const tabId = tabOrder[index];
@@ -3017,30 +2105,8 @@ function bindSessionEvents(): void {
       return;
     }
 
-    const parsed = extractShellCommandReports(data, tab.shellMetadataBuffer);
-    tab.shellMetadataBuffer = parsed.buffer;
-
-    if (parsed.cleanData.length > 0) {
-      tab.term.write(parsed.cleanData);
-      markTabOutput(tab);
-    }
-
-    if (parsed.reports.length === 0) {
-      return;
-    }
-
-    for (const report of parsed.reports) {
-      recordShellCommandReport(tab, report);
-    }
-
-    if (reconcileTabTitles()) {
-      renderTabStrip();
-    }
-    if (tab.id === activeTabId) {
-      updateStatus();
-      void refreshActiveGitStatus(true);
-    }
-    syncCommandPaletteActions();
+    tab.term.write(data);
+    markTabOutput(tab);
   });
 
   window.terminalAPI.onSessionExit(({ sessionId, exitCode }) => {
@@ -3466,21 +2532,9 @@ function bindUI(): void {
       gitPollTimer = undefined;
     }
   });
-
-  const updateReducedMotionPreference = () => {
-    syncReducedMotionFlag();
-  };
-  if (typeof reducedMotionQuery.addEventListener === 'function') {
-    reducedMotionQuery.addEventListener('change', updateReducedMotionPreference);
-  } else {
-    reducedMotionQuery.addListener(updateReducedMotionPreference);
-  }
 }
 
 async function boot(): Promise<void> {
-  taskPresets = loadTaskPresets();
-  smartHistory = loadSmartHistory();
-  syncReducedMotionFlag();
   homeDirectory = await window.terminalAPI.getHomeDirectory();
   systemAppearance = await window.terminalAPI.getSystemAppearance();
   settings = await window.terminalAPI.getSettings();
@@ -3503,7 +2557,6 @@ async function boot(): Promise<void> {
   }
   updateStatus();
   void refreshActiveGitStatus(true);
-  runReleaseGateAudit(false);
 }
 
 void boot();

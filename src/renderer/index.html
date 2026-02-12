@@ -12,14 +12,7 @@
   <body>
     <div id="app-shell">
       <header id="topbar" aria-label="Terminal tabs and controls">
-        <div
-          id="tab-strip"
-          role="tablist"
-          aria-label="Terminal tabs"
-          aria-orientation="horizontal"
-          aria-describedby="tablist-hint"
-        ></div>
-        <span id="tablist-hint" class="sr-only">Use Left/Right arrows to switch tabs, Home/End to jump, Delete to close.</span>
+        <div id="tab-strip" role="tablist" aria-label="Terminal tabs"></div>
         <div id="topbar-controls">
           <div id="search-inline" class="search-inline" role="search" aria-label="Search terminal output">
             <button id="search-prev" class="search-nav" type="button" title="Previous match (Shift+Enter)">
@@ -114,10 +107,7 @@
               <button type="button" class="theme-swatch" data-theme="aurora">Aurora</button>
               <button type="button" class="theme-swatch" data-theme="noir">Noir</button>
               <button type="button" class="theme-swatch" data-theme="fog">Fog</button>
-              <button type="button" class="theme-swatch" data-theme="catppuccin-latte">Catppuccin Latte</button>
-              <button type="button" class="theme-swatch" data-theme="catppuccin-frappe">Catppuccin Frappe</button>
-              <button type="button" class="theme-swatch" data-theme="catppuccin-macchiato">Catppuccin Macchiato</button>
-              <button type="button" class="theme-swatch" data-theme="catppuccin-mocha">Catppuccin Mocha</button>
+              <button type="button" class="theme-swatch" data-theme="catppuccin">Catppuccin</button>
             </div>
             <input id="setting-theme" type="hidden" value="system" />
           </label>
@@ -250,10 +240,7 @@
               <option value="aurora">Aurora</option>
               <option value="noir">Noir</option>
               <option value="fog">Fog</option>
-              <option value="catppuccin-latte">Catppuccin Latte</option>
-              <option value="catppuccin-frappe">Catppuccin Frappe</option>
-              <option value="catppuccin-macchiato">Catppuccin Macchiato</option>
-              <option value="catppuccin-mocha">Catppuccin Mocha</option>
+              <option value="catppuccin">Catppuccin</option>
             </select>
           </label>
 

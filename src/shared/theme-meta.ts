@@ -8,7 +8,7 @@ export interface ThemeMeta {
 export const THEME_META: Record<ThemeName, ThemeMeta> = {
   graphite: {
     appearance: 'dark',
-    electronBgColor: '#0b0e14'
+    electronBgColor: '#0b0d12'
   },
   midnight: {
     appearance: 'dark',
@@ -34,19 +34,7 @@ export const THEME_META: Record<ThemeName, ThemeMeta> = {
     appearance: 'dark',
     electronBgColor: '#1c1b1f'
   },
-  'catppuccin-latte': {
-    appearance: 'light',
-    electronBgColor: '#eff1f5'
-  },
-  'catppuccin-frappe': {
-    appearance: 'dark',
-    electronBgColor: '#303446'
-  },
-  'catppuccin-macchiato': {
-    appearance: 'dark',
-    electronBgColor: '#24273a'
-  },
-  'catppuccin-mocha': {
+  catppuccin: {
     appearance: 'dark',
     electronBgColor: '#1e1e2e'
   }

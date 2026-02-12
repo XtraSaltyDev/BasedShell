@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { BrowserWindow } from 'electron';
@@ -27,8 +26,6 @@ interface SessionRecord {
 }
 
 let spawnHelperChecked = false;
-let zshTelemetryWrapperDir: string | null = null;
-let bashTelemetryScriptPath: string | null = null;
 const execFileAsync = promisify(execFile);
 const SSH_OPTION_REQUIRES_VALUE = new Set([
   '-b',
@@ -136,202 +133,6 @@ function parseShellTokens(command: string): string[] {
   }
 
   return matches.map((token) => token.replace(/^['"]|['"]$/g, ''));
-}
-
-function normalizeBootstrapTemplate(script: string): string {
-  // String.raw is used to avoid JS template interpolation, then we unescape
-  // shell parameter expansions so zsh/bash receive `${...}`.
-  return script.replace(/\\\$\{/g, '${');
-}
-
-function shellSingleQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function buildZshTelemetryScript(): string {
-  const script = String.raw`if [[ -z "\${BASEDSHELL_HOOKS_ACTIVE:-}" ]]; then
-  export BASEDSHELL_HOOKS_ACTIVE=1
-  typeset -g BASEDSHELL_LAST_CMD=""
-  typeset -g BASEDSHELL_CMD_START=0
-  _basedshell_escape() {
-    local value="$1"
-    value=\${value//\\/\\\\}
-    value=\${value//;/\\;}
-    value=\${value//$'\n'/\\n}
-    print -rn -- "$value"
-  }
-  _basedshell_preexec() {
-    BASEDSHELL_LAST_CMD="$1"
-    BASEDSHELL_CMD_START=$EPOCHREALTIME
-  }
-  _basedshell_precmd() {
-    local ec=$?
-    local dur=0
-    if [[ -n "$BASEDSHELL_CMD_START" && "$BASEDSHELL_CMD_START" != "0" ]]; then
-      local now=$EPOCHREALTIME
-      dur=$(( (now - BASEDSHELL_CMD_START) * 1000 ))
-    fi
-    print -rn -- $'\e]633;cmd='
-    _basedshell_escape "$BASEDSHELL_LAST_CMD"
-    print -rn -- ';exit='"$ec"';dur='"$dur"';cwd='
-    _basedshell_escape "$PWD"
-    print -rn -- $'\a'
-    BASEDSHELL_LAST_CMD=""
-    BASEDSHELL_CMD_START=0
-  }
-  preexec_functions=(_basedshell_preexec \${preexec_functions:#_basedshell_preexec})
-  precmd_functions=(_basedshell_precmd \${precmd_functions:#_basedshell_precmd})
-fi`;
-  return normalizeBootstrapTemplate(script);
-}
-
-function buildBashTelemetryScript(): string {
-  const script = String.raw`if [[ -z "\${BASEDSHELL_HOOKS_ACTIVE:-}" ]]; then
-  export BASEDSHELL_HOOKS_ACTIVE=1
-  BASEDSHELL_LAST_CMD=""
-  BASEDSHELL_CMD_START=0
-  _basedshell_now_ms() {
-    printf '%s000' "$(printf '%(%s)T' -1)"
-  }
-  _basedshell_escape() {
-    local value="$1"
-    value="\${value//\\/\\\\}"
-    value="\${value//;/\\;}"
-    value="\${value//$'\n'/\\n}"
-    printf '%s' "$value"
-  }
-  _basedshell_preexec() {
-    [[ "$BASH_COMMAND" == _basedshell_precmd* ]] && return
-    BASEDSHELL_LAST_CMD="$BASH_COMMAND"
-    BASEDSHELL_CMD_START="$(_basedshell_now_ms)"
-  }
-  _basedshell_precmd() {
-    local ec=$?
-    local now="$(_basedshell_now_ms)"
-    local dur=0
-    if [[ "$BASEDSHELL_CMD_START" =~ ^[0-9]+$ ]]; then
-      dur=$((now - BASEDSHELL_CMD_START))
-    fi
-    printf '\033]633;cmd='
-    _basedshell_escape "$BASEDSHELL_LAST_CMD"
-    printf ';exit=%s;dur=%s;cwd=' "$ec" "$dur"
-    _basedshell_escape "$PWD"
-    printf '\a'
-    BASEDSHELL_LAST_CMD=""
-    BASEDSHELL_CMD_START=0
-  }
-  trap '_basedshell_preexec' DEBUG
-  PROMPT_COMMAND="_basedshell_precmd\${PROMPT_COMMAND:+;\${PROMPT_COMMAND}}"
-fi`;
-  return normalizeBootstrapTemplate(script);
-}
-
-function writeIfChanged(targetPath: string, nextContent: string): void {
-  const current = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf8') : '';
-  if (current === nextContent) {
-    return;
-  }
-
-  fs.writeFileSync(targetPath, nextContent, { encoding: 'utf8', mode: 0o600 });
-}
-
-function ensureZshTelemetryWrapper(): string | null {
-  if (zshTelemetryWrapperDir && fs.existsSync(zshTelemetryWrapperDir)) {
-    return zshTelemetryWrapperDir;
-  }
-
-  try {
-    const wrapperDir = fs.mkdtempSync(path.join(os.tmpdir(), 'basedshell-zdotdir-'));
-    const integrationScriptPath = path.join(wrapperDir, 'basedshell-telemetry.zsh');
-    writeIfChanged(integrationScriptPath, buildZshTelemetryScript());
-
-    const wrapperPrelude = [
-      '# BasedShell generated shell wrapper.',
-      `typeset -g BASEDSHELL_WRAPPER_ZDOTDIR=${JSON.stringify(wrapperDir)}`,
-      'typeset -g BASEDSHELL_SOURCE_ZDOTDIR_RESOLVED="${BASEDSHELL_SOURCE_ZDOTDIR:-${HOME:-/}}"'
-    ].join('\n');
-
-    const makeWrapperFile = (dotfile: string, extraLines: string[] = []): string => {
-      const lines = [
-        wrapperPrelude,
-        `if [[ -f "\${BASEDSHELL_SOURCE_ZDOTDIR_RESOLVED}/${dotfile}" ]]; then`,
-        '  export ZDOTDIR="${BASEDSHELL_SOURCE_ZDOTDIR_RESOLVED}"',
-        `  source "\${BASEDSHELL_SOURCE_ZDOTDIR_RESOLVED}/${dotfile}"`,
-        'fi',
-        'export ZDOTDIR="${BASEDSHELL_WRAPPER_ZDOTDIR}"',
-        ...extraLines
-      ];
-      return `${lines.join('\n')}\n`;
-    };
-
-    writeIfChanged(path.join(wrapperDir, '.zshenv'), makeWrapperFile('.zshenv'));
-    writeIfChanged(path.join(wrapperDir, '.zprofile'), makeWrapperFile('.zprofile'));
-    writeIfChanged(path.join(wrapperDir, '.zlogin'), makeWrapperFile('.zlogin'));
-    writeIfChanged(path.join(wrapperDir, '.zlogout'), makeWrapperFile('.zlogout'));
-    writeIfChanged(
-      path.join(wrapperDir, '.zshrc'),
-      makeWrapperFile('.zshrc', [
-        'if [[ -r "${BASEDSHELL_WRAPPER_ZDOTDIR}/basedshell-telemetry.zsh" ]]; then',
-        '  source "${BASEDSHELL_WRAPPER_ZDOTDIR}/basedshell-telemetry.zsh"',
-        'fi'
-      ])
-    );
-
-    zshTelemetryWrapperDir = wrapperDir;
-    return wrapperDir;
-  } catch {
-    return null;
-  }
-}
-
-function ensureBashTelemetryScript(): string | null {
-  if (bashTelemetryScriptPath && fs.existsSync(bashTelemetryScriptPath)) {
-    return bashTelemetryScriptPath;
-  }
-
-  try {
-    const scriptPath = path.join(os.tmpdir(), 'basedshell-bash-telemetry.sh');
-    writeIfChanged(scriptPath, `${buildBashTelemetryScript()}\n`);
-    bashTelemetryScriptPath = scriptPath;
-    return scriptPath;
-  } catch {
-    return null;
-  }
-}
-
-function configureShellTelemetryEnv(env: Record<string, string>, shellPath: string, cwd: string): void {
-  const shellName = path.basename(shellPath).toLowerCase();
-  if (!shellName.includes('zsh')) {
-    return;
-  }
-
-  const wrapperDir = ensureZshTelemetryWrapper();
-  if (!wrapperDir) {
-    return;
-  }
-
-  const requestedSourceZdotdir = env.ZDOTDIR?.trim() || env.HOME?.trim() || process.env.HOME || cwd || '/';
-  const sourceZdotdir = requestedSourceZdotdir === wrapperDir ? env.HOME?.trim() || process.env.HOME || '/' : requestedSourceZdotdir;
-  env.BASEDSHELL_SOURCE_ZDOTDIR = sourceZdotdir;
-  env.ZDOTDIR = wrapperDir;
-}
-
-function shellTelemetryBootstrapInput(shellPath: string): string | null {
-  const shellName = path.basename(shellPath).toLowerCase();
-  if (shellName.includes('zsh')) {
-    return null;
-  }
-
-  if (shellName.includes('bash')) {
-    const scriptPath = ensureBashTelemetryScript();
-    if (!scriptPath) {
-      return null;
-    }
-
-    return `source ${shellSingleQuote(scriptPath)} >/dev/null 2>&1\r`;
-  }
-
-  return null;
 }
 
 function parseSshHost(command: string): string | null {
@@ -477,7 +278,6 @@ export class SessionManager {
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor'
     };
-    configureShellTelemetryEnv(env, profile.shell, cwd);
 
     const proc = pty.spawn(profile.shell, profile.args, {
       name: 'xterm-256color',
@@ -514,18 +314,6 @@ export class SessionManager {
 
       this.sessions.delete(sessionId);
     });
-
-    const telemetryBootstrap = shellTelemetryBootstrapInput(profile.shell);
-    if (telemetryBootstrap) {
-      setTimeout(() => {
-        const session = this.sessions.get(sessionId);
-        if (!session) {
-          return;
-        }
-
-        session.process.write(telemetryBootstrap);
-      }, 80);
-    }
 
     return {
       sessionId,

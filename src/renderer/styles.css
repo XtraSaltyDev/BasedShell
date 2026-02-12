@@ -12,7 +12,8 @@ body {
 
 body {
   background:
-    radial-gradient(ellipse at 95% 0%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0%, transparent 42%),
+    radial-gradient(ellipse at 15% -5%, var(--color-bg-elevated) 0%, transparent 40%),
+    radial-gradient(ellipse at 95% 5%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 35%),
     var(--color-bg-base);
   color: var(--color-text-primary);
   font-family: var(--font-ui);
@@ -25,7 +26,7 @@ body {
   grid-template-rows: var(--size-topbar-height) 1fr var(--size-statusbar-height);
   height: 100%;
   backdrop-filter: blur(var(--blur-shell));
-  background: var(--color-bg-surface);
+  background: color-mix(in srgb, var(--color-bg-surface) calc(var(--surface-opacity) * 100%), transparent);
 }
 
 #topbar {
@@ -94,18 +95,24 @@ body {
   padding: 0 var(--space-3) 0 var(--space-2);
   gap: var(--space-2);
   cursor: pointer;
-  user-select: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tab-border-idle) 70%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-bg-base) 35%, transparent);
   transition:
     background var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
     transform var(--duration-fast) var(--ease-standard);
 }
 
 .tab:hover {
-  background: color-mix(in srgb, var(--tab-bg-hover) 85%, var(--color-accent-tint));
-  color: var(--color-accent-hover);
-  border-color: color-mix(in srgb, var(--tab-border-active) 58%, var(--tab-border-idle));
+  background: var(--tab-bg-hover);
+  color: var(--tab-fg-active);
+  border-color: color-mix(in srgb, var(--tab-border-active) 78%, var(--tab-border-idle));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tab-border-active) 58%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-bg-base) 28%, transparent);
 }
 
 .tab:active {
@@ -117,41 +124,10 @@ body {
   background: var(--tab-bg-active);
   color: var(--tab-fg-active);
   border-color: var(--tab-border-active);
-}
-
-.tab:focus-visible {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--tab-border-active));
-  box-shadow: var(--shadow-glow);
-  outline: none;
-}
-
-.tab.drag-source {
-  opacity: 0.58;
-  border-style: dashed;
-}
-
-#tab-strip.tab-dragging .tab:not(.drag-source) {
-  cursor: grabbing;
-}
-
-.tab.drag-over-before::before,
-.tab.drag-over-after::after {
-  content: '';
-  position: absolute;
-  top: 5px;
-  bottom: 5px;
-  width: 2px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent);
-  box-shadow: var(--shadow-glow);
-}
-
-.tab.drag-over-before::before {
-  left: 1px;
-}
-
-.tab.drag-over-after::after {
-  right: 1px;
+  box-shadow:
+    var(--shadow-sm),
+    var(--shadow-inset),
+    inset 0 0 0 1px color-mix(in srgb, var(--tab-border-active) 72%, transparent);
 }
 
 .tab.exit .tab-title {
@@ -221,8 +197,7 @@ body {
 
 .tab-indicator-dot.active {
   opacity: 1;
-  background: var(--color-accent);
-  box-shadow: var(--shadow-glow);
+  background: var(--color-success);
   transform: scale(1);
 }
 
@@ -264,10 +239,6 @@ body {
 
 .tab:hover .tab-close {
   opacity: 0.7;
-}
-
-.tab:focus-within .tab-close {
-  opacity: 0.75;
 }
 
 .tab-close:hover {
@@ -315,9 +286,9 @@ body {
 }
 
 .icon-button.active {
-  border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border-default));
-  background: color-mix(in srgb, var(--color-accent-tint) 75%, var(--color-bg-elevated));
-  color: var(--color-accent-hover);
+  border-color: var(--color-accent-muted);
+  background: color-mix(in srgb, var(--color-accent-subtle) 52%, var(--color-bg-elevated));
+  color: var(--color-text-primary);
 }
 
 .icon-button:active {
@@ -351,7 +322,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--overlay-terminal-dim);
+  background: rgba(0, 0, 0, 0.25);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--duration-moderate) var(--ease-standard);
@@ -418,7 +389,7 @@ body {
 }
 
 .status-segment:hover {
-  background: color-mix(in srgb, var(--color-accent-tint) 70%, transparent);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   color: var(--color-text-primary);
 }
 
@@ -431,47 +402,12 @@ body {
   color: var(--color-success);
 }
 
-.status-segment[data-state='info'] {
-  color: var(--color-accent-hover);
-}
-
 .status-segment[data-state='warning'] {
   color: var(--color-warning);
 }
 
 .status-segment[data-state='danger'] {
   color: var(--color-danger);
-}
-
-#status-context[data-state='success'],
-#status-context[data-state='danger'] {
-  color: var(--statusbar-fg);
-}
-
-#status-context[data-state='success']::before,
-#status-context[data-state='danger']::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
-}
-
-#status-context[data-state='success']::before {
-  background: var(--color-success);
-}
-
-#status-context[data-state='danger']::before {
-  background: var(--color-danger);
-}
-
-#status-git[data-state='info']::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent);
-  box-shadow: var(--shadow-glow);
 }
 
 #status-tabs {
@@ -575,7 +511,7 @@ body {
 .palette-scrim {
   position: fixed;
   inset: 0;
-  background: var(--overlay-scrim);
+  background: rgba(0, 0, 0, 0.36);
   opacity: 0;
   transition: opacity var(--duration-normal) var(--ease-out);
   z-index: 70;
@@ -595,9 +531,9 @@ body {
   opacity: 0;
   display: flex;
   flex-direction: column;
-  border: var(--size-border-default) solid var(--color-border-default);
+  border: var(--size-border-default) solid var(--color-border-strong);
   border-radius: var(--radius-xl);
-  background: var(--color-bg-elevated);
+  background: color-mix(in srgb, var(--color-bg-overlay) 94%, transparent);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(20px);
   overflow: hidden;
@@ -643,10 +579,7 @@ body {
 }
 
 .palette-item.active .palette-action {
-  background: var(--color-accent-tint);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent),
-    var(--shadow-glow);
+  background: color-mix(in srgb, var(--color-accent-subtle) 70%, transparent);
 }
 
 .palette-action {
@@ -669,18 +602,12 @@ body {
 }
 
 .palette-action:hover {
-  background: color-mix(in srgb, var(--color-accent-tint) 45%, var(--color-bg-elevated));
+  background: color-mix(in srgb, var(--color-bg-elevated) 65%, transparent);
 }
 
 .palette-action:active {
   transform: scale(var(--scale-press));
   transition-duration: var(--duration-press);
-}
-
-.palette-action:focus-visible {
-  outline: 1px solid var(--color-accent);
-  outline-offset: -1px;
-  box-shadow: var(--shadow-glow);
 }
 
 .palette-text {
@@ -770,7 +697,7 @@ body {
     border-color var(--duration-normal) var(--ease-out);
   border: var(--size-border-default) solid transparent;
   border-radius: var(--radius-lg);
-  background: var(--search-bg);
+  background: color-mix(in srgb, var(--search-bg) 94%, transparent);
   backdrop-filter: blur(16px);
 }
 
@@ -798,8 +725,8 @@ body {
 
 #search-input:focus {
   outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px var(--color-accent-tint);
+  border-color: var(--color-accent-muted);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .search-counter {
@@ -855,7 +782,7 @@ body {
 
 .search-chip.active {
   border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent-tint) 78%, var(--input-bg));
+  background: color-mix(in srgb, var(--color-accent-subtle) 65%, var(--input-bg));
   color: var(--color-text-primary);
 }
 
@@ -881,7 +808,7 @@ input::placeholder {
 .settings-scrim {
   position: fixed;
   inset: 0;
-  background: var(--overlay-scrim-strong);
+  background: rgba(0, 0, 0, 0.42);
   opacity: 0;
   transition: opacity var(--duration-moderate) var(--ease-out);
   z-index: 18;
@@ -899,9 +826,9 @@ input::placeholder {
   height: 100vh;
   display: grid;
   grid-template-rows: 48px 1fr 64px;
-  background: var(--panel-bg);
+  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
   border-left: var(--size-border-default) solid var(--panel-border);
-  box-shadow: var(--shadow-panel);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(24px);
   transform: translateX(100%);
   opacity: 0;
@@ -1005,12 +932,10 @@ input::placeholder {
   background: var(--color-bg-elevated);
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
-  min-height: 34px;
-  padding: var(--space-1) var(--space-2);
+  min-height: 28px;
+  padding: 0 var(--space-2);
   font-size: var(--type-sm);
   line-height: var(--leading-sm);
-  white-space: normal;
-  text-align: center;
   cursor: pointer;
   transition:
     border-color var(--duration-fast) var(--ease-standard),
@@ -1194,8 +1119,8 @@ input::placeholder {
 }
 
 #settings-save {
-  border-color: color-mix(in srgb, var(--color-accent) 46%, var(--color-border-default)) !important;
-  background: color-mix(in srgb, var(--color-accent-tint) 84%, var(--color-bg-elevated)) !important;
+  border-color: var(--color-accent-muted) !important;
+  background: var(--color-accent-subtle) !important;
   color: var(--color-accent-hover) !important;
 }
 
@@ -1215,9 +1140,7 @@ input::placeholder {
 input:focus,
 select:focus {
   border-color: var(--input-border-focus);
-  box-shadow:
-    0 0 0 var(--size-focus-glow-width) var(--color-accent-tint),
-    var(--shadow-glow);
+  box-shadow: 0 0 0 var(--size-focus-glow-width) color-mix(in srgb, var(--color-accent) 20%, transparent);
   transition:
     border-color var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
@@ -1225,16 +1148,17 @@ select:focus {
 
 [data-vibrancy='true'] body {
   background:
-    radial-gradient(ellipse at 95% 5%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 36%),
+    radial-gradient(ellipse at 15% -5%, color-mix(in srgb, var(--color-bg-elevated) 60%, transparent) 0%, transparent 40%),
+    radial-gradient(ellipse at 95% 5%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 35%),
     color-mix(in srgb, var(--color-bg-base) 75%, transparent);
 }
 
 [data-vibrancy='true'] #topbar {
-  background: color-mix(in srgb, var(--topbar-bg) 72%, transparent);
+  background: color-mix(in srgb, var(--color-bg-elevated) 65%, transparent);
 }
 
 [data-vibrancy='true'] #statusbar {
-  background: color-mix(in srgb, var(--statusbar-bg) 76%, transparent);
+  background: color-mix(in srgb, var(--statusbar-bg) 70%, transparent);
 }
 
 @media (max-width: 860px) {
@@ -1249,10 +1173,6 @@ select:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #tab-strip {
-    scroll-behavior: auto;
-  }
-
   *,
   *::before,
   *::after {
