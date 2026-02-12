@@ -33,10 +33,6 @@ export const THEME_META: Record<ThemeName, ThemeMeta> = {
   fog: {
     appearance: 'dark',
     electronBgColor: '#1c1b1f'
-  },
-  catppuccin: {
-    appearance: 'dark',
-    electronBgColor: '#1e1e2e'
   }
 };
 

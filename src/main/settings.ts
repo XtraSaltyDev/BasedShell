@@ -6,7 +6,6 @@ import type {
   CursorStyle,
   ProfileCard,
   SettingsPatch,
-  TabHostLabelMode,
   TerminalProfile,
   ThemeSelection,
   WorkspacePreset,
@@ -22,12 +21,10 @@ const THEMES = new Set<ThemeSelection>([
   'paper',
   'aurora',
   'noir',
-  'fog',
-  'catppuccin'
+  'fog'
 ]);
 const APPEARANCE_PREFERENCES = new Set<AppearancePreference>(['system', 'dark', 'light']);
 const CURSORS = new Set<CursorStyle>(['block', 'underline', 'bar']);
-const TAB_HOST_LABEL_MODES = new Set<TabHostLabelMode>(['off', 'ssh-only', 'all']);
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -154,7 +151,6 @@ export class SettingsService {
       backgroundOpacity: 0.92,
       theme: 'graphite',
       appearancePreference: 'system',
-      tabHostLabelMode: 'ssh-only',
       vibrancy: false,
       profiles: [
         {
@@ -432,9 +428,6 @@ export class SettingsService {
       appearancePreference: APPEARANCE_PREFERENCES.has(candidate.appearancePreference)
         ? candidate.appearancePreference
         : 'system',
-      tabHostLabelMode: TAB_HOST_LABEL_MODES.has(candidate.tabHostLabelMode)
-        ? candidate.tabHostLabelMode
-        : 'ssh-only',
       vibrancy: Boolean(candidate.vibrancy),
       profiles: dedupedProfiles,
       defaultProfileId,
