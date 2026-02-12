@@ -675,7 +675,10 @@ function formatDuration(durationMs: number): string {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-function setStatusSegmentState(button: HTMLButtonElement, state: 'idle' | 'success' | 'warning' | 'danger'): void {
+function setStatusSegmentState(
+  button: HTMLButtonElement,
+  state: 'idle' | 'info' | 'success' | 'warning' | 'danger'
+): void {
   button.dataset.state = state;
 }
 
@@ -746,8 +749,30 @@ const themeCycleOrder: ThemeSelection[] = [
   'aurora',
   'noir',
   'fog',
-  'catppuccin'
+  'catppuccin-latte',
+  'catppuccin-frappe',
+  'catppuccin-macchiato',
+  'catppuccin-mocha'
 ];
+
+const THEME_LABELS: Record<ThemeSelection, string> = {
+  system: 'System',
+  graphite: 'Graphite',
+  midnight: 'Midnight',
+  'solarized-dark': 'Solarized Dark',
+  paper: 'Paper',
+  aurora: 'Aurora',
+  noir: 'Noir',
+  fog: 'Fog',
+  'catppuccin-latte': 'Catppuccin Latte',
+  'catppuccin-frappe': 'Catppuccin Frappe',
+  'catppuccin-macchiato': 'Catppuccin Macchiato',
+  'catppuccin-mocha': 'Catppuccin Mocha'
+};
+
+function themeLabel(theme: ThemeSelection): string {
+  return THEME_LABELS[theme];
+}
 
 async function cycleTheme(): Promise<void> {
   const currentIndex = themeCycleOrder.findIndex((theme) => theme === settings.theme);
@@ -762,7 +787,10 @@ async function cycleTheme(): Promise<void> {
     applySettingsToAllTabs();
     renderTabStrip();
     updateStatus();
-    toasts.show(`Theme: ${nextTheme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName}`, 'success');
+    toasts.show(
+      `Theme: ${nextTheme === 'system' ? `System (${themeLabel(resolvedTheme.themeName)})` : themeLabel(nextTheme)}`,
+      'success'
+    );
   } catch {
     toasts.show('Failed to switch theme.', 'error', 0);
   }
@@ -798,7 +826,7 @@ function updateStatus(): void {
       : 'No workspace configured.';
     setStatusSegmentState(ui.statusWorkspace, 'idle');
 
-    ui.statusTheme.textContent = resolvedTheme.themeName;
+    ui.statusTheme.textContent = themeLabel(resolvedTheme.themeName);
     ui.statusTheme.title = 'Theme';
     setStatusSegmentState(ui.statusTheme, 'idle');
     return;
@@ -817,7 +845,7 @@ function updateStatus(): void {
   if (git) {
     ui.statusGit.textContent = git.dirty ? `${git.branch} *` : git.branch;
     ui.statusGit.title = `Git branch: ${git.branch}${git.dirty ? ' (dirty)' : ' (clean)'} · Click to refresh`;
-    setStatusSegmentState(ui.statusGit, git.dirty ? 'warning' : 'success');
+    setStatusSegmentState(ui.statusGit, git.dirty ? 'warning' : 'info');
   } else {
     ui.statusGit.textContent = 'No Repo';
     ui.statusGit.title = `No git repository detected for ${active.cwd}. Click to refresh.`;
@@ -849,10 +877,10 @@ function updateStatus(): void {
     : 'No workspace configured.';
   setStatusSegmentState(ui.statusWorkspace, 'idle');
 
-  const themeLabel =
-    settings.theme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName;
-  ui.statusTheme.textContent = themeLabel;
-  ui.statusTheme.title = `Theme: ${themeLabel}. Click to cycle themes.`;
+  const resolvedLabel = themeLabel(resolvedTheme.themeName);
+  const selectedLabel = settings.theme === 'system' ? `System (${resolvedLabel})` : themeLabel(settings.theme);
+  ui.statusTheme.textContent = selectedLabel;
+  ui.statusTheme.title = `Theme: ${selectedLabel}. Click to cycle themes.`;
   setStatusSegmentState(ui.statusTheme, 'idle');
 }
 
@@ -1193,25 +1221,37 @@ function setSearchToggleState(button: HTMLButtonElement, pressed: boolean): void
   button.classList.toggle('active', pressed);
 }
 
-function searchDecorations(): NonNullable<ISearchOptions['decorations']> {
-  if (resolvedTheme.appearance === 'light') {
-    return {
-      matchBackground: '#CDEBDF',
-      matchBorder: '#5EAE8A',
-      matchOverviewRuler: '#5EAE8A',
-      activeMatchBackground: '#89C9AC',
-      activeMatchBorder: '#2D7A5D',
-      activeMatchColorOverviewRuler: '#2D7A5D'
-    };
+function rgbaFromHex(color: string, alpha: number): string | null {
+  const normalized = color.trim().replace('#', '');
+  const hex = normalized.length === 3 ? normalized.split('').map((char) => `${char}${char}`).join('') : normalized;
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return null;
   }
 
+  const r = Number.parseInt(hex.slice(0, 2), 16);
+  const g = Number.parseInt(hex.slice(2, 4), 16);
+  const b = Number.parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function alphaColor(color: string, alpha: number): string {
+  return rgbaFromHex(color, alpha) ?? color;
+}
+
+function searchDecorations(): NonNullable<ISearchOptions['decorations']> {
+  const accent = resolvedTheme.theme.chrome.accent;
+  const accentHover = resolvedTheme.theme.chrome.accentHover;
+  const matchBackground = alphaColor(accent, resolvedTheme.appearance === 'light' ? 0.16 : 0.2);
+  const activeMatchBackground = alphaColor(accent, resolvedTheme.appearance === 'light' ? 0.26 : 0.34);
+  const matchBorder = alphaColor(accentHover, resolvedTheme.appearance === 'light' ? 0.55 : 0.6);
+  const activeMatchBorder = alphaColor(accentHover, resolvedTheme.appearance === 'light' ? 0.78 : 0.9);
   return {
-    matchBackground: '#2A4F42',
-    matchBorder: '#4AA97F',
-    matchOverviewRuler: '#4AA97F',
-    activeMatchBackground: '#3B7F64',
-    activeMatchBorder: '#6AD7A7',
-    activeMatchColorOverviewRuler: '#6AD7A7'
+    matchBackground,
+    matchBorder,
+    matchOverviewRuler: matchBorder,
+    activeMatchBackground,
+    activeMatchBorder,
+    activeMatchColorOverviewRuler: activeMatchBorder
   };
 }
 

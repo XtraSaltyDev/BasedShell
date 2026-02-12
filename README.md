@@ -37,7 +37,7 @@ BasedShell is built with Electron, `node-pty`, and `xterm.js`, and now includes 
   - Save current tabs into workspace startup config
   - Per-card shell profile + visual overrides
 - Theme architecture with built-in themes:
-  - `graphite`, `midnight`, `solarized-dark`, `paper`, `aurora`, `noir`, `fog`, `catppuccin`, and `system`
+  - `graphite`, `midnight`, `solarized-dark`, `paper`, `aurora`, `noir`, `fog`, `catppuccin-latte`, `catppuccin-frappe`, `catppuccin-macchiato`, `catppuccin-mocha`, and `system`
 - System appearance sync (`light`/`dark`) + optional macOS vibrancy
 - Toast notifications + native menu integration
 

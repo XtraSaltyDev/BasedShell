@@ -23,11 +23,17 @@ const THEMES = new Set<ThemeSelection>([
   'aurora',
   'noir',
   'fog',
-  'catppuccin'
+  'catppuccin-latte',
+  'catppuccin-frappe',
+  'catppuccin-macchiato',
+  'catppuccin-mocha'
 ]);
 const APPEARANCE_PREFERENCES = new Set<AppearancePreference>(['system', 'dark', 'light']);
 const CURSORS = new Set<CursorStyle>(['block', 'underline', 'bar']);
 const TAB_HOST_LABEL_MODES = new Set<TabHostLabelMode>(['off', 'ssh-only', 'all']);
+const LEGACY_THEME_ALIASES: Record<string, ThemeSelection> = {
+  catppuccin: 'catppuccin-mocha'
+};
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -35,6 +41,19 @@ function clamp(value: number, min: number, max: number): number {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function normalizeThemeSelection(value: unknown): ThemeSelection | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = LEGACY_THEME_ALIASES[value] ?? value;
+  if (THEMES.has(normalized as ThemeSelection)) {
+    return normalized as ThemeSelection;
+  }
+
+  return undefined;
 }
 
 function sanitizeProfile(candidate: TerminalProfile, fallbackCwd: string): TerminalProfile {
@@ -69,11 +88,12 @@ function sanitizeProfileCard(
   candidate: ProfileCard,
   fallbackProfileId: string
 ): ProfileCard {
+  const theme = normalizeThemeSelection(candidate.theme);
   return {
     id: candidate.id?.trim() || 'default-card',
     name: candidate.name?.trim() || 'Default Card',
     profileId: candidate.profileId?.trim() || fallbackProfileId,
-    theme: candidate.theme && THEMES.has(candidate.theme) ? candidate.theme : undefined,
+    theme: theme,
     fontFamily: candidate.fontFamily?.trim() || undefined,
     fontSize:
       Number.isFinite(candidate.fontSize) && Number(candidate.fontSize) > 0
@@ -428,7 +448,7 @@ export class SettingsService {
       cursorBlink: Boolean(candidate.cursorBlink),
       scrollback: Math.round(clamp(Number(candidate.scrollback) || 20000, 1000, 200000)),
       backgroundOpacity: clamp(Number(candidate.backgroundOpacity) || 0.92, 0.6, 1),
-      theme: THEMES.has(candidate.theme) ? candidate.theme : 'graphite',
+      theme: normalizeThemeSelection(candidate.theme) ?? 'graphite',
       appearancePreference: APPEARANCE_PREFERENCES.has(candidate.appearancePreference)
         ? candidate.appearancePreference
         : 'system',

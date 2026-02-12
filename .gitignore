@@ -19,6 +19,7 @@ coverage
 .env
 .env.local
 .env.*.local
+NOTES.md
 
 # IDE/editor noise
 .vscode

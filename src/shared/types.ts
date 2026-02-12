@@ -6,7 +6,10 @@ export type ThemeName =
   | 'aurora'
   | 'noir'
   | 'fog'
-  | 'catppuccin';
+  | 'catppuccin-latte'
+  | 'catppuccin-frappe'
+  | 'catppuccin-macchiato'
+  | 'catppuccin-mocha';
 
 export type ThemeSelection = ThemeName | 'system';
 

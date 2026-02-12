@@ -2,74 +2,347 @@ import type { AppSettings, AppearanceMode, FullTheme, ThemeChrome, ThemeName } f
 import { resolveAppearance, resolveThemeName, THEME_META } from '../shared/theme-meta';
 
 const defaultChrome: ThemeChrome = {
-  bgBase: '#0b0d12',
-  bgSurface: '#111317',
-  bgElevated: '#1a1f2b',
-  bgOverlay: 'rgba(15, 18, 28, 0.95)',
-  bgInset: '#151b26',
-  borderDefault: '#2d3447',
-  borderSubtle: '#252e3f',
-  borderStrong: '#3b4a63',
-  borderAccent: 'rgba(107, 203, 168, 0.35)',
-  textPrimary: '#d7deef',
-  textSecondary: '#8c95ab',
-  textMuted: '#6b7d9b',
-  textDisabled: '#4d5f7a',
-  textInverse: '#0b0d12',
-  accent: '#54d2a1',
-  accentHover: '#6fd3af',
-  accentMuted: '#1d3f34',
-  accentSubtle: '#0f2a22',
-  danger: '#f16d7e',
-  dangerHover: '#ff9bb0',
-  dangerMuted: '#7a2a35',
-  warning: '#f4d68c',
-  info: '#75a7f0',
-  success: '#54d2a1',
-  focusRing: 'rgba(84, 210, 161, 0.5)',
-  topbarBg: 'linear-gradient(180deg, #1a1f2b 0%, #151b26 100%)',
-  statusbarBg: '#111317',
-  statusbarFg: '#6b7d9b',
-  panelBg: '#111317',
-  panelBorder: '#2d3447',
-  searchBg: 'rgba(15, 18, 28, 0.95)',
-  searchBorder: '#3b4a63',
-  inputBg: '#0b0d12',
-  inputBorder: '#2d3447',
-  inputFg: '#d7deef',
-  inputPlaceholder: '#4d5f7a',
-  tabBgIdle: '#151b26',
-  tabBgActive: '#1a1f2b',
-  tabBgHover: '#1f2736',
-  tabFgIdle: '#8c95ab',
-  tabFgActive: '#d7deef',
-  tabBorderIdle: '#252e3f',
-  tabBorderActive: '#3b4a63',
-  tabIndicator: '#54d2a1'
+  bgBase: '#0b0e14',
+  bgSurface: '#0f1320',
+  bgElevated: '#1b2036',
+  bgOverlay: 'rgba(27, 32, 54, 0.96)',
+  bgInset: '#151a2b',
+  borderDefault: 'rgba(255, 255, 255, 0.08)',
+  borderSubtle: 'rgba(255, 255, 255, 0.05)',
+  borderStrong: 'rgba(255, 255, 255, 0.15)',
+  borderAccent: 'rgba(139, 92, 246, 0.35)',
+  textPrimary: '#e5e7eb',
+  textSecondary: '#9ca3af',
+  textMuted: '#64748b',
+  textDisabled: '#475569',
+  textInverse: '#0b0e14',
+  accent: '#8b5cf6',
+  accentHover: '#a78bfa',
+  accentMuted: 'rgba(139, 92, 246, 0.24)',
+  accentSubtle: 'rgba(139, 92, 246, 0.12)',
+  danger: '#ef4444',
+  dangerHover: '#f87171',
+  dangerMuted: 'rgba(239, 68, 68, 0.22)',
+  warning: '#f59e0b',
+  info: '#8b5cf6',
+  success: '#22c55e',
+  focusRing: 'rgba(139, 92, 246, 0.55)',
+  topbarBg: '#151a2b',
+  statusbarBg: '#151a2b',
+  statusbarFg: '#64748b',
+  panelBg: '#1b2036',
+  panelBorder: 'rgba(255, 255, 255, 0.08)',
+  searchBg: '#1b2036',
+  searchBorder: 'rgba(255, 255, 255, 0.15)',
+  inputBg: '#0f1320',
+  inputBorder: 'rgba(255, 255, 255, 0.08)',
+  inputFg: '#e5e7eb',
+  inputPlaceholder: '#64748b',
+  tabBgIdle: '#151a2b',
+  tabBgActive: '#1b2036',
+  tabBgHover: '#222944',
+  tabFgIdle: '#9ca3af',
+  tabFgActive: '#e5e7eb',
+  tabBorderIdle: 'rgba(255, 255, 255, 0.05)',
+  tabBorderActive: 'rgba(167, 139, 250, 0.32)',
+  tabIndicator: '#8b5cf6'
 };
+
+type CatppuccinFlavorName =
+  | 'catppuccin-latte'
+  | 'catppuccin-frappe'
+  | 'catppuccin-macchiato'
+  | 'catppuccin-mocha';
+
+interface CatppuccinPalette {
+  rosewater: string;
+  flamingo: string;
+  pink: string;
+  mauve: string;
+  red: string;
+  maroon: string;
+  peach: string;
+  yellow: string;
+  green: string;
+  teal: string;
+  sky: string;
+  sapphire: string;
+  blue: string;
+  lavender: string;
+  text: string;
+  subtext1: string;
+  subtext0: string;
+  overlay2: string;
+  overlay1: string;
+  overlay0: string;
+  surface2: string;
+  surface1: string;
+  surface0: string;
+  base: string;
+  mantle: string;
+  crust: string;
+}
+
+const CATPPUCCIN_FLAVORS: Record<CatppuccinFlavorName, CatppuccinPalette> = {
+  'catppuccin-latte': {
+    rosewater: '#dc8a78',
+    flamingo: '#dd7878',
+    pink: '#ea76cb',
+    mauve: '#8839ef',
+    red: '#d20f39',
+    maroon: '#e64553',
+    peach: '#fe640b',
+    yellow: '#df8e1d',
+    green: '#40a02b',
+    teal: '#179299',
+    sky: '#04a5e5',
+    sapphire: '#209fb5',
+    blue: '#1e66f5',
+    lavender: '#7287fd',
+    text: '#4c4f69',
+    subtext1: '#5c5f77',
+    subtext0: '#6c6f85',
+    overlay2: '#7c7f93',
+    overlay1: '#8c8fa1',
+    overlay0: '#9ca0b0',
+    surface2: '#acb0be',
+    surface1: '#bcc0cc',
+    surface0: '#ccd0da',
+    base: '#eff1f5',
+    mantle: '#e6e9ef',
+    crust: '#dce0e8'
+  },
+  'catppuccin-frappe': {
+    rosewater: '#f2d5cf',
+    flamingo: '#eebebe',
+    pink: '#f4b8e4',
+    mauve: '#ca9ee6',
+    red: '#e78284',
+    maroon: '#ea999c',
+    peach: '#ef9f76',
+    yellow: '#e5c890',
+    green: '#a6d189',
+    teal: '#81c8be',
+    sky: '#99d1db',
+    sapphire: '#85c1dc',
+    blue: '#8caaee',
+    lavender: '#babbf1',
+    text: '#c6d0f5',
+    subtext1: '#b5bfe2',
+    subtext0: '#a5adce',
+    overlay2: '#949cbb',
+    overlay1: '#838ba7',
+    overlay0: '#737994',
+    surface2: '#626880',
+    surface1: '#51576d',
+    surface0: '#414559',
+    base: '#303446',
+    mantle: '#292c3c',
+    crust: '#232634'
+  },
+  'catppuccin-macchiato': {
+    rosewater: '#f4dbd6',
+    flamingo: '#f0c6c6',
+    pink: '#f5bde6',
+    mauve: '#c6a0f6',
+    red: '#ed8796',
+    maroon: '#ee99a0',
+    peach: '#f5a97f',
+    yellow: '#eed49f',
+    green: '#a6da95',
+    teal: '#8bd5ca',
+    sky: '#91d7e3',
+    sapphire: '#7dc4e4',
+    blue: '#8aadf4',
+    lavender: '#b7bdf8',
+    text: '#cad3f5',
+    subtext1: '#b8c0e0',
+    subtext0: '#a5adcb',
+    overlay2: '#939ab7',
+    overlay1: '#8087a2',
+    overlay0: '#6e738d',
+    surface2: '#5b6078',
+    surface1: '#494d64',
+    surface0: '#363a4f',
+    base: '#24273a',
+    mantle: '#1e2030',
+    crust: '#181926'
+  },
+  'catppuccin-mocha': {
+    rosewater: '#f5e0dc',
+    flamingo: '#f2cdcd',
+    pink: '#f5c2e7',
+    mauve: '#cba6f7',
+    red: '#f38ba8',
+    maroon: '#eba0ac',
+    peach: '#fab387',
+    yellow: '#f9e2af',
+    green: '#a6e3a1',
+    teal: '#94e2d5',
+    sky: '#89dceb',
+    sapphire: '#74c7ec',
+    blue: '#89b4fa',
+    lavender: '#b4befe',
+    text: '#cdd6f4',
+    subtext1: '#bac2de',
+    subtext0: '#a6adc8',
+    overlay2: '#9399b2',
+    overlay1: '#7f849c',
+    overlay0: '#6c7086',
+    surface2: '#585b70',
+    surface1: '#45475a',
+    surface0: '#313244',
+    base: '#1e1e2e',
+    mantle: '#181825',
+    crust: '#11111b'
+  }
+};
+
+function alphaHex(hex: string, alpha: number): string {
+  const normalized = hex.trim().replace('#', '');
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return hex;
+  }
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function catppuccinTone(
+  palette: CatppuccinPalette,
+  appearance: AppearanceMode,
+  tone: 'black' | 'white' | 'brightBlack' | 'brightWhite'
+): string {
+  if (appearance === 'light') {
+    if (tone === 'black') {
+      return palette.subtext1;
+    }
+    if (tone === 'white') {
+      return palette.surface2;
+    }
+    if (tone === 'brightBlack') {
+      return palette.subtext0;
+    }
+    return palette.surface1;
+  }
+
+  if (tone === 'black') {
+    return palette.surface1;
+  }
+  if (tone === 'white') {
+    return palette.subtext0;
+  }
+  if (tone === 'brightBlack') {
+    return palette.surface2;
+  }
+  return palette.subtext1;
+}
+
+function catppuccinTheme(flavor: CatppuccinFlavorName): FullTheme {
+  const palette = CATPPUCCIN_FLAVORS[flavor];
+  const appearance = THEME_META[flavor].appearance;
+  const whiteTone = catppuccinTone(palette, appearance, 'white');
+  const brightWhiteTone = catppuccinTone(palette, appearance, 'brightWhite');
+
+  return {
+    terminal: {
+      background: palette.base,
+      foreground: palette.text,
+      cursor: palette.rosewater,
+      selectionBackground: palette.overlay2,
+      black: catppuccinTone(palette, appearance, 'black'),
+      red: palette.red,
+      green: palette.green,
+      yellow: palette.yellow,
+      blue: palette.blue,
+      magenta: palette.pink,
+      cyan: palette.teal,
+      white: whiteTone,
+      brightBlack: catppuccinTone(palette, appearance, 'brightBlack'),
+      brightRed: palette.flamingo,
+      brightGreen: palette.green,
+      brightYellow: palette.peach,
+      brightBlue: palette.sapphire,
+      brightMagenta: palette.mauve,
+      brightCyan: palette.sky,
+      brightWhite: brightWhiteTone
+    },
+    chrome: {
+      ...defaultChrome,
+      bgBase: palette.base,
+      bgSurface: appearance === 'light' ? palette.base : palette.mantle,
+      bgElevated: palette.surface0,
+      bgOverlay: alphaHex(palette.mantle, 0.95),
+      bgInset: palette.crust,
+      borderDefault: palette.surface1,
+      borderSubtle: palette.surface0,
+      borderStrong: palette.surface2,
+      borderAccent: alphaHex(palette.mauve, 0.35),
+      textPrimary: palette.text,
+      textSecondary: palette.subtext1,
+      textMuted: palette.subtext0,
+      textDisabled: palette.overlay1,
+      textInverse: palette.crust,
+      accent: palette.mauve,
+      accentHover: palette.lavender,
+      accentMuted: alphaHex(palette.mauve, 0.2),
+      accentSubtle: alphaHex(palette.mauve, 0.12),
+      danger: palette.red,
+      dangerHover: palette.maroon,
+      dangerMuted: alphaHex(palette.red, 0.22),
+      warning: palette.yellow,
+      info: palette.blue,
+      success: palette.green,
+      focusRing: alphaHex(palette.mauve, 0.5),
+      topbarBg: `linear-gradient(180deg, ${palette.surface0} 0%, ${palette.mantle} 100%)`,
+      statusbarBg: palette.mantle,
+      statusbarFg: palette.subtext0,
+      panelBg: palette.mantle,
+      panelBorder: palette.surface1,
+      searchBg: alphaHex(palette.mantle, 0.95),
+      searchBorder: palette.surface2,
+      inputBg: palette.base,
+      inputBorder: palette.surface1,
+      inputFg: palette.text,
+      inputPlaceholder: palette.overlay1,
+      tabBgIdle: appearance === 'light' ? palette.mantle : palette.base,
+      tabBgActive: palette.surface0,
+      tabBgHover: palette.surface1,
+      tabFgIdle: palette.subtext1,
+      tabFgActive: palette.text,
+      tabBorderIdle: palette.surface0,
+      tabBorderActive: palette.surface2,
+      tabIndicator: palette.mauve
+    },
+    electronBgColor: THEME_META[flavor].electronBgColor,
+    appearance
+  };
+}
 
 const THEMES: Record<ThemeName, FullTheme> = {
   graphite: {
     terminal: {
-      background: '#101319',
-      foreground: '#dce3f2',
-      cursor: '#6fd3af',
-      selectionBackground: '#324154',
-      black: '#191d27',
-      red: '#ec7890',
-      green: '#7cd3a6',
-      yellow: '#f4d68c',
-      blue: '#75a7f0',
-      magenta: '#b89bf6',
-      cyan: '#72d4e5',
-      white: '#eaf0ff',
-      brightBlack: '#4d586e',
-      brightRed: '#ff9bb0',
-      brightGreen: '#97ecc0',
-      brightYellow: '#ffe6ad',
-      brightBlue: '#94bbff',
-      brightMagenta: '#cab3ff',
-      brightCyan: '#94ecfc',
+      background: '#0f1320',
+      foreground: '#e5e7eb',
+      cursor: '#a78bfa',
+      selectionBackground: '#312653',
+      black: '#1a2034',
+      red: '#ef4444',
+      green: '#22c55e',
+      yellow: '#f59e0b',
+      blue: '#818cf8',
+      magenta: '#8b5cf6',
+      cyan: '#22d3ee',
+      white: '#cfd7e3',
+      brightBlack: '#525d80',
+      brightRed: '#f87171',
+      brightGreen: '#4ade80',
+      brightYellow: '#fbbf24',
+      brightBlue: '#a5b4fc',
+      brightMagenta: '#c4b5fd',
+      brightCyan: '#67e8f9',
       brightWhite: '#ffffff'
     },
     chrome: {
@@ -471,79 +744,10 @@ const THEMES: Record<ThemeName, FullTheme> = {
     electronBgColor: THEME_META.fog.electronBgColor,
     appearance: THEME_META.fog.appearance
   },
-  catppuccin: {
-    terminal: {
-      background: '#1e1e2e',
-      foreground: '#cdd6f4',
-      cursor: '#f5e0dc',
-      selectionBackground: '#45475a',
-      black: '#45475a',
-      red: '#f38ba8',
-      green: '#a6e3a1',
-      yellow: '#f9e2af',
-      blue: '#89b4fa',
-      magenta: '#f5c2e7',
-      cyan: '#94e2d5',
-      white: '#bac2de',
-      brightBlack: '#585b70',
-      brightRed: '#f38ba8',
-      brightGreen: '#a6e3a1',
-      brightYellow: '#f9e2af',
-      brightBlue: '#89b4fa',
-      brightMagenta: '#f5c2e7',
-      brightCyan: '#94e2d5',
-      brightWhite: '#cdd6f4'
-    },
-    chrome: {
-      ...defaultChrome,
-      bgBase: '#1e1e2e',
-      bgSurface: '#181825',
-      bgElevated: '#313244',
-      bgOverlay: 'rgba(24, 24, 37, 0.95)',
-      bgInset: '#11111b',
-      borderDefault: '#45475a',
-      borderSubtle: '#313244',
-      borderStrong: '#585b70',
-      borderAccent: 'rgba(203, 166, 247, 0.35)',
-      textPrimary: '#cdd6f4',
-      textSecondary: '#bac2de',
-      textMuted: '#9399b2',
-      textDisabled: '#6c7086',
-      textInverse: '#11111b',
-      accent: '#cba6f7',
-      accentHover: '#d8b8fa',
-      accentMuted: '#3d3452',
-      accentSubtle: '#2b243d',
-      danger: '#f38ba8',
-      dangerHover: '#f7a8bc',
-      dangerMuted: '#5a2f3e',
-      warning: '#f9e2af',
-      info: '#89b4fa',
-      success: '#a6e3a1',
-      focusRing: 'rgba(203, 166, 247, 0.5)',
-      topbarBg: 'linear-gradient(180deg, #313244 0%, #181825 100%)',
-      statusbarBg: '#181825',
-      statusbarFg: '#9399b2',
-      panelBg: '#181825',
-      panelBorder: '#45475a',
-      searchBg: 'rgba(24, 24, 37, 0.95)',
-      searchBorder: '#585b70',
-      inputBg: '#1e1e2e',
-      inputBorder: '#45475a',
-      inputFg: '#cdd6f4',
-      inputPlaceholder: '#6c7086',
-      tabBgIdle: '#1e1e2e',
-      tabBgActive: '#313244',
-      tabBgHover: '#3a3c52',
-      tabFgIdle: '#bac2de',
-      tabFgActive: '#cdd6f4',
-      tabBorderIdle: '#313244',
-      tabBorderActive: '#585b70',
-      tabIndicator: '#cba6f7'
-    },
-    electronBgColor: THEME_META.catppuccin.electronBgColor,
-    appearance: THEME_META.catppuccin.appearance
-  }
+  'catppuccin-latte': catppuccinTheme('catppuccin-latte'),
+  'catppuccin-frappe': catppuccinTheme('catppuccin-frappe'),
+  'catppuccin-macchiato': catppuccinTheme('catppuccin-macchiato'),
+  'catppuccin-mocha': catppuccinTheme('catppuccin-mocha')
 };
 
 const chromeVarMap: Record<keyof ThemeChrome, string> = {
