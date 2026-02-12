@@ -14,6 +14,29 @@
       <header id="topbar" aria-label="Terminal tabs and controls">
         <div id="tab-strip" role="tablist" aria-label="Terminal tabs"></div>
         <div id="topbar-controls">
+          <div id="search-inline" class="search-inline" role="search" aria-label="Search terminal output">
+            <button id="search-prev" class="search-nav" type="button" title="Previous match (Shift+Enter)">
+              Prev
+            </button>
+            <button id="search-next" class="search-nav" type="button" title="Next match (Enter)">
+              Next
+            </button>
+            <input id="search-input" type="text" placeholder="Find in output..." />
+            <span id="search-counter" class="search-counter" aria-live="polite">Type to search</span>
+            <button id="search-case-sensitive" class="search-chip" type="button" aria-pressed="false" title="Case sensitive">
+              Aa
+            </button>
+            <button id="search-regex" class="search-chip" type="button" aria-pressed="false" title="Regular expression">
+              .*
+            </button>
+            <button id="search-close" class="search-close" type="button" aria-label="Close search">Close</button>
+          </div>
+          <button
+            id="search-button"
+            class="icon-button"
+            title="Search (Cmd/Ctrl+F)"
+            aria-label="Search output"
+          ></button>
           <button id="new-tab-button" class="icon-button" title="New tab (Cmd/Ctrl+T)" aria-label="New tab"></button>
           <button id="settings-button" class="icon-button" title="Settings (Cmd/Ctrl+,)" aria-label="Open settings"></button>
         </div>
@@ -58,17 +81,6 @@
       <ul id="palette-results" class="palette-results" role="listbox" aria-label="Command results"></ul>
       <footer class="palette-footer">Enter to run · ↑↓ to navigate · Cmd/Ctrl+Shift+P to close</footer>
     </section>
-
-    <div id="search-panel" class="overlay hidden" role="dialog" aria-modal="false" aria-label="Search terminal output">
-      <input id="search-input" type="text" placeholder="Find in terminal" />
-      <label class="checkbox-wrap">
-        <input id="search-case-sensitive" type="checkbox" />
-        Case sensitive
-      </label>
-      <button id="search-prev">Prev</button>
-      <button id="search-next">Next</button>
-      <button id="search-close">Close</button>
-    </div>
 
     <div id="settings-scrim" class="settings-scrim hidden" aria-hidden="true"></div>
     <aside id="settings-panel" class="settings-panel" aria-label="Terminal settings" aria-hidden="true">
