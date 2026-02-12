@@ -151,6 +151,8 @@ export interface SessionContextEvent {
 }
 
 export interface GitStatus {
+  repo: string;
+  root: string;
   branch: string;
   dirty: boolean;
 }
@@ -177,7 +179,8 @@ export type MenuAction =
   | 'previous-tab'
   | 'search'
   | 'settings'
-  | 'clear-terminal';
+  | 'clear-terminal'
+  | 'command-palette';
 
 export type SettingsPatch = Partial<
   Omit<AppSettings, 'profiles' | 'defaultProfileId'>
