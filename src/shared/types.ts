@@ -162,6 +162,10 @@ export interface SystemAppearanceEvent {
   appearance: AppearanceMode;
 }
 
+export interface SettingsChangedEvent {
+  settings: AppSettings;
+}
+
 export interface SessionWriteRequest {
   sessionId: string;
   data: string;

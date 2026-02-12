@@ -742,7 +742,7 @@ function updateStatus(): void {
 
   const shellLabel = shellName(active.shell);
   ui.statusShell.textContent = active.exited ? `${shellLabel} (Exited)` : `${shellLabel} · ${active.pid}`;
-  ui.statusShell.title = `Shell: ${active.shell}${active.exited ? ' (exited)' : ''}. Click to open settings.`;
+  ui.statusShell.title = `Shell: ${active.shell}${active.exited ? ' (exited)' : ''}. Click to open settings window.`;
   setStatusSegmentState(ui.statusShell, active.exited ? 'warning' : 'idle');
 
   ui.statusCwd.textContent = truncateMiddle(active.cwd, 34);
@@ -1245,26 +1245,8 @@ function closeSettingsPanel(discardPreview: boolean): void {
 }
 
 function openSettings(): void {
-  if (!settingsUi) {
-    toasts.show('Settings UI is unavailable in this build. Run npm run check:dom-contract.', 'info');
-    return;
-  }
-
-  if (isSettingsOpen()) {
-    focusSelectedThemeSwatch();
-    return;
-  }
-
-  settingsPreviewBaseline = structuredClone(settings);
-  syncSettingsFormFromState(settings);
-
-  settingsUi.settingsScrim.classList.remove('hidden');
-  ui.terminalHost.classList.add('panel-open');
-  requestAnimationFrame(() => {
-    settingsUi.settingsPanel.classList.add('open');
-    settingsUi.settingsPanel.setAttribute('aria-hidden', 'false');
-    settingsUi.settingsScrim.classList.add('open');
-    focusSelectedThemeSwatch();
+  void window.terminalAPI.openSettingsWindow().catch(() => {
+    toasts.show('Unable to open settings window.', 'error', 0);
   });
 }
 
@@ -1393,7 +1375,7 @@ function commandPaletteActions(): CommandPaletteAction[] {
     {
       id: 'settings',
       title: 'Open Settings',
-      description: 'Open the settings drawer',
+      description: 'Open the settings window',
       shortcut: 'Cmd/Ctrl+,',
       keywords: ['settings', 'preferences', 'config'],
       run: openSettings
@@ -1582,6 +1564,19 @@ function bindSystemAppearanceEvents(): void {
     applySettingsToAllTabs();
     renderTabStrip();
     updateStatus();
+  });
+}
+
+function bindSettingsEvents(): void {
+  window.terminalAPI.onSettingsChanged((event) => {
+    settings = event.settings;
+    applySettingsToAllTabs();
+    if (settingsUi && isSettingsOpen()) {
+      syncSettingsFormFromState(settings);
+    }
+    renderTabStrip();
+    updateStatus();
+    syncCommandPaletteActions();
   });
 }
 
@@ -1913,6 +1908,7 @@ async function boot(): Promise<void> {
   bindKeyboardShortcuts();
   bindMenuActions();
   bindSessionEvents();
+  bindSettingsEvents();
   bindSystemAppearanceEvents();
   startGitStatusPolling();
   await createTab();

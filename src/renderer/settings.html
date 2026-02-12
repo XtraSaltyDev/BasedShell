@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BasedShell Settings</title>
+  </head>
+  <body>
+    <div class="settings-window">
+      <header class="settings-window-header">
+        <div>
+          <p class="eyebrow">BasedShell</p>
+          <h1>Settings</h1>
+        </div>
+        <div class="header-actions">
+          <button id="settings-reset" type="button">Reset</button>
+          <button id="settings-cancel" type="button">Close</button>
+          <button id="settings-save" type="button">Save</button>
+        </div>
+      </header>
+
+      <div class="settings-window-body">
+        <nav class="settings-nav" aria-label="Settings sections">
+          <button class="settings-nav-item active" data-section="appearance" type="button">Appearance</button>
+          <button class="settings-nav-item" data-section="terminal" type="button">Terminal</button>
+          <button class="settings-nav-item" data-section="behavior" type="button">Behavior</button>
+        </nav>
+
+        <main class="settings-content" id="settings-content">
+          <form id="settings-form" class="settings-form" novalidate>
+            <section class="settings-section" id="section-appearance" data-section="appearance">
+              <h2>Appearance</h2>
+              <p class="section-note">Theme, chrome style, and system appearance behavior.</p>
+
+              <label>
+                Theme
+                <input id="setting-theme" type="hidden" value="graphite" />
+                <div id="setting-theme-swatches" class="theme-swatches"></div>
+              </label>
+
+              <label>
+                Appearance Mode
+                <select id="setting-appearance">
+                  <option value="system">System</option>
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                </select>
+              </label>
+
+              <label>
+                Window Surface Opacity
+                <input id="setting-opacity" type="range" min="0.6" max="1" step="0.01" />
+              </label>
+
+              <label class="checkbox-field">
+                <input id="setting-vibrancy" type="checkbox" />
+                <span>Enable macOS vibrancy</span>
+              </label>
+            </section>
+
+            <section class="settings-section" id="section-terminal" data-section="terminal">
+              <h2>Terminal</h2>
+              <p class="section-note">Text rendering and cursor settings for all tabs.</p>
+
+              <label>
+                Font Family
+                <input id="setting-font-family" type="text" autocomplete="off" />
+              </label>
+
+              <label>
+                Font Size
+                <input id="setting-font-size" type="range" min="10" max="28" step="1" />
+              </label>
+
+              <label>
+                Line Height
+                <input id="setting-line-height" type="range" min="1" max="2" step="0.01" />
+              </label>
+
+              <label>
+                Cursor Style
+                <select id="setting-cursor-style">
+                  <option value="block">Block</option>
+                  <option value="underline">Underline</option>
+                  <option value="bar">Bar</option>
+                </select>
+              </label>
+
+              <label class="checkbox-field">
+                <input id="setting-cursor-blink" type="checkbox" />
+                <span>Blink cursor</span>
+              </label>
+            </section>
+
+            <section class="settings-section" id="section-behavior" data-section="behavior">
+              <h2>Behavior</h2>
+              <p class="section-note">Runtime behavior and command history scale.</p>
+
+              <label>
+                Scrollback Lines
+                <input id="setting-scrollback" type="number" min="1000" max="200000" step="100" />
+              </label>
+            </section>
+          </form>
+        </main>
+      </div>
+
+      <footer class="settings-window-footer">
+        <p id="settings-status">No pending changes.</p>
+      </footer>
+    </div>
+
+    <script type="module" src="./settings.ts"></script>
+  </body>
+</html>
