@@ -1,4 +1,15 @@
-export type ThemeName = 'graphite' | 'midnight' | 'solarized-dark' | 'paper' | 'aurora' | 'noir' | 'fog';
+export type ThemeName =
+  | 'graphite'
+  | 'midnight'
+  | 'solarized-dark'
+  | 'paper'
+  | 'aurora'
+  | 'noir'
+  | 'fog'
+  | 'catppuccin-latte'
+  | 'catppuccin-frappe'
+  | 'catppuccin-macchiato'
+  | 'catppuccin-mocha';
 
 export type ThemeSelection = ThemeName | 'system';
 
@@ -96,6 +107,7 @@ export interface TerminalProfile {
 }
 
 export interface AppSettings {
+  schemaVersion: number;
   fontFamily: string;
   fontSize: number;
   lineHeight: number;
@@ -161,6 +173,10 @@ export interface SystemAppearanceEvent {
   appearance: AppearanceMode;
 }
 
+export interface SettingsChangedEvent {
+  settings: AppSettings;
+}
+
 export interface SessionWriteRequest {
   sessionId: string;
   data: string;
@@ -183,7 +199,7 @@ export type MenuAction =
   | 'command-palette';
 
 export type SettingsPatch = Partial<
-  Omit<AppSettings, 'profiles' | 'defaultProfileId'>
+  Omit<AppSettings, 'schemaVersion' | 'profiles' | 'defaultProfileId'>
 > & {
   profiles?: TerminalProfile[];
   defaultProfileId?: string;

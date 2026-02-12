@@ -60,6 +60,26 @@ interface CommandContext {
   at: number;
 }
 
+interface SettingsUi {
+  settingsPanel: HTMLElement;
+  settingsScrim: HTMLDivElement;
+  settingsClose: HTMLButtonElement;
+  settingsCancel: HTMLButtonElement;
+  settingsSave: HTMLButtonElement;
+  settingsForm: HTMLFormElement;
+  settingThemeSwatches: HTMLDivElement;
+  settingFontFamily: HTMLInputElement;
+  settingFontSize: HTMLInputElement;
+  settingLineHeight: HTMLInputElement;
+  settingScrollback: HTMLInputElement;
+  settingOpacity: HTMLInputElement;
+  settingTheme: HTMLInputElement;
+  settingAppearance: HTMLSelectElement;
+  settingCursorStyle: HTMLSelectElement;
+  settingCursorBlink: HTMLInputElement;
+  settingVibrancy: HTMLInputElement;
+}
+
 const dom = {
   tabStrip: document.querySelector<HTMLDivElement>('#tab-strip'),
   newTabButton: document.querySelector<HTMLButtonElement>('#new-tab-button'),
@@ -129,6 +149,63 @@ function assertDom<T>(value: T | null, id: string): T {
   return value;
 }
 
+function bindSettingsUi(): SettingsUi | null {
+  const entries: Array<[keyof SettingsUi, Element | null]> = [
+    ['settingsPanel', dom.settingsPanel],
+    ['settingsScrim', dom.settingsScrim],
+    ['settingsClose', dom.settingsClose],
+    ['settingsCancel', dom.settingsCancel],
+    ['settingsSave', dom.settingsSave],
+    ['settingsForm', dom.settingsForm],
+    ['settingThemeSwatches', dom.settingThemeSwatches],
+    ['settingFontFamily', dom.settingFontFamily],
+    ['settingFontSize', dom.settingFontSize],
+    ['settingLineHeight', dom.settingLineHeight],
+    ['settingScrollback', dom.settingScrollback],
+    ['settingOpacity', dom.settingOpacity],
+    ['settingTheme', dom.settingTheme],
+    ['settingAppearance', dom.settingAppearance],
+    ['settingCursorStyle', dom.settingCursorStyle],
+    ['settingCursorBlink', dom.settingCursorBlink],
+    ['settingVibrancy', dom.settingVibrancy]
+  ];
+
+  const missing: string[] = [];
+  for (const [id, element] of entries) {
+    if (!element) {
+      missing.push(id);
+    }
+  }
+
+  if (missing.length > 0) {
+    console.warn(
+      `[BasedShell] Settings UI bindings missing (${missing.join(', ')}). ` +
+        'Settings drawer controls are disabled. Run `npm run check:dom-contract`.'
+    );
+    return null;
+  }
+
+  return {
+    settingsPanel: dom.settingsPanel as HTMLElement,
+    settingsScrim: dom.settingsScrim as HTMLDivElement,
+    settingsClose: dom.settingsClose as HTMLButtonElement,
+    settingsCancel: dom.settingsCancel as HTMLButtonElement,
+    settingsSave: dom.settingsSave as HTMLButtonElement,
+    settingsForm: dom.settingsForm as HTMLFormElement,
+    settingThemeSwatches: dom.settingThemeSwatches as HTMLDivElement,
+    settingFontFamily: dom.settingFontFamily as HTMLInputElement,
+    settingFontSize: dom.settingFontSize as HTMLInputElement,
+    settingLineHeight: dom.settingLineHeight as HTMLInputElement,
+    settingScrollback: dom.settingScrollback as HTMLInputElement,
+    settingOpacity: dom.settingOpacity as HTMLInputElement,
+    settingTheme: dom.settingTheme as HTMLInputElement,
+    settingAppearance: dom.settingAppearance as HTMLSelectElement,
+    settingCursorStyle: dom.settingCursorStyle as HTMLSelectElement,
+    settingCursorBlink: dom.settingCursorBlink as HTMLInputElement,
+    settingVibrancy: dom.settingVibrancy as HTMLInputElement
+  };
+}
+
 const ui = {
   tabStrip: assertDom(dom.tabStrip, '#tab-strip'),
   newTabButton: assertDom(dom.newTabButton, '#new-tab-button'),
@@ -156,25 +233,9 @@ const ui = {
   searchRegex: assertDom(dom.searchRegex, '#search-regex'),
   searchPrev: assertDom(dom.searchPrev, '#search-prev'),
   searchNext: assertDom(dom.searchNext, '#search-next'),
-  searchClose: assertDom(dom.searchClose, '#search-close'),
-  settingsPanel: assertDom(dom.settingsPanel, '#settings-panel'),
-  settingsScrim: assertDom(dom.settingsScrim, '#settings-scrim'),
-  settingsClose: assertDom(dom.settingsClose, '#settings-close'),
-  settingsCancel: assertDom(dom.settingsCancel, '#settings-cancel'),
-  settingsSave: assertDom(dom.settingsSave, '#settings-save'),
-  settingsForm: assertDom(dom.settingsForm, '#settings-form'),
-  settingThemeSwatches: assertDom(dom.settingThemeSwatches, '#setting-theme-swatches'),
-  settingFontFamily: assertDom(dom.settingFontFamily, '#setting-font-family'),
-  settingFontSize: assertDom(dom.settingFontSize, '#setting-font-size'),
-  settingLineHeight: assertDom(dom.settingLineHeight, '#setting-line-height'),
-  settingScrollback: assertDom(dom.settingScrollback, '#setting-scrollback'),
-  settingOpacity: assertDom(dom.settingOpacity, '#setting-opacity'),
-  settingTheme: assertDom(dom.settingTheme, '#setting-theme'),
-  settingAppearance: assertDom(dom.settingAppearance, '#setting-appearance'),
-  settingCursorStyle: assertDom(dom.settingCursorStyle, '#setting-cursor-style'),
-  settingCursorBlink: assertDom(dom.settingCursorBlink, '#setting-cursor-blink'),
-  settingVibrancy: assertDom(dom.settingVibrancy, '#setting-vibrancy')
+  searchClose: assertDom(dom.searchClose, '#search-close')
 };
+const settingsUi = bindSettingsUi();
 
 const toasts = createToastManager(ui.toastContainer, ui.toastAnnouncer);
 let commandPalette: CommandPaletteController | null = null;
@@ -628,7 +689,11 @@ const themeCycleOrder: ThemeSelection[] = [
   'paper',
   'aurora',
   'noir',
-  'fog'
+  'fog',
+  'catppuccin-latte',
+  'catppuccin-frappe',
+  'catppuccin-macchiato',
+  'catppuccin-mocha'
 ];
 
 async function cycleTheme(): Promise<void> {
@@ -681,7 +746,7 @@ function updateStatus(): void {
 
   const shellLabel = shellName(active.shell);
   ui.statusShell.textContent = active.exited ? `${shellLabel} (Exited)` : `${shellLabel} · ${active.pid}`;
-  ui.statusShell.title = `Shell: ${active.shell}${active.exited ? ' (exited)' : ''}. Click to open settings.`;
+  ui.statusShell.title = `Shell: ${active.shell}${active.exited ? ' (exited)' : ''}. Click to open settings window.`;
   setStatusSegmentState(ui.statusShell, active.exited ? 'warning' : 'idle');
 
   ui.statusCwd.textContent = truncateMiddle(active.cwd, 34);
@@ -1076,7 +1141,7 @@ function closeSearch(): void {
 }
 
 function isSettingsOpen(): boolean {
-  return ui.settingsPanel.classList.contains('open');
+  return settingsUi?.settingsPanel.classList.contains('open') ?? false;
 }
 
 function setRangeFill(input: HTMLInputElement): void {
@@ -1093,8 +1158,12 @@ function setRangeFill(input: HTMLInputElement): void {
 }
 
 function syncThemeSwatches(): void {
-  const selectedTheme = ui.settingTheme.value;
-  const swatches = ui.settingThemeSwatches.querySelectorAll<HTMLButtonElement>('.theme-swatch');
+  if (!settingsUi) {
+    return;
+  }
+
+  const selectedTheme = settingsUi.settingTheme.value;
+  const swatches = settingsUi.settingThemeSwatches.querySelectorAll<HTMLButtonElement>('.theme-swatch');
   for (const swatch of swatches) {
     const selected = swatch.dataset.theme === selectedTheme;
     swatch.classList.toggle('selected', selected);
@@ -1105,44 +1174,60 @@ function syncThemeSwatches(): void {
 }
 
 function focusSelectedThemeSwatch(): void {
-  const selected = ui.settingThemeSwatches.querySelector<HTMLButtonElement>('.theme-swatch.selected');
-  (selected ?? ui.settingThemeSwatches.querySelector<HTMLButtonElement>('.theme-swatch'))?.focus();
+  if (!settingsUi) {
+    return;
+  }
+
+  const selected = settingsUi.settingThemeSwatches.querySelector<HTMLButtonElement>('.theme-swatch.selected');
+  (selected ?? settingsUi.settingThemeSwatches.querySelector<HTMLButtonElement>('.theme-swatch'))?.focus();
 }
 
 function syncSettingsFormFromState(source: AppSettings): void {
-  ui.settingFontFamily.value = source.fontFamily;
-  ui.settingFontSize.value = String(source.fontSize);
-  ui.settingLineHeight.value = String(source.lineHeight);
-  ui.settingScrollback.value = String(source.scrollback);
-  ui.settingOpacity.value = String(source.backgroundOpacity);
-  ui.settingTheme.value = source.theme;
-  ui.settingAppearance.value = source.appearancePreference;
-  ui.settingCursorStyle.value = source.cursorStyle;
-  ui.settingCursorBlink.checked = source.cursorBlink;
-  ui.settingVibrancy.checked = source.vibrancy;
+  if (!settingsUi) {
+    return;
+  }
 
-  setRangeFill(ui.settingFontSize);
-  setRangeFill(ui.settingLineHeight);
-  setRangeFill(ui.settingOpacity);
+  settingsUi.settingFontFamily.value = source.fontFamily;
+  settingsUi.settingFontSize.value = String(source.fontSize);
+  settingsUi.settingLineHeight.value = String(source.lineHeight);
+  settingsUi.settingScrollback.value = String(source.scrollback);
+  settingsUi.settingOpacity.value = String(source.backgroundOpacity);
+  settingsUi.settingTheme.value = source.theme;
+  settingsUi.settingAppearance.value = source.appearancePreference;
+  settingsUi.settingCursorStyle.value = source.cursorStyle;
+  settingsUi.settingCursorBlink.checked = source.cursorBlink;
+  settingsUi.settingVibrancy.checked = source.vibrancy;
+
+  setRangeFill(settingsUi.settingFontSize);
+  setRangeFill(settingsUi.settingLineHeight);
+  setRangeFill(settingsUi.settingOpacity);
   syncThemeSwatches();
 }
 
 function settingsPatchFromForm(): SettingsPatch {
+  if (!settingsUi) {
+    return {};
+  }
+
   return {
-    fontFamily: ui.settingFontFamily.value,
-    fontSize: Number(ui.settingFontSize.value),
-    lineHeight: Number(ui.settingLineHeight.value),
-    scrollback: Number(ui.settingScrollback.value),
-    backgroundOpacity: Number(ui.settingOpacity.value),
-    theme: ui.settingTheme.value as ThemeSelection,
-    appearancePreference: ui.settingAppearance.value as AppSettings['appearancePreference'],
-    cursorStyle: ui.settingCursorStyle.value as CursorStyle,
-    cursorBlink: ui.settingCursorBlink.checked,
-    vibrancy: ui.settingVibrancy.checked
+    fontFamily: settingsUi.settingFontFamily.value,
+    fontSize: Number(settingsUi.settingFontSize.value),
+    lineHeight: Number(settingsUi.settingLineHeight.value),
+    scrollback: Number(settingsUi.settingScrollback.value),
+    backgroundOpacity: Number(settingsUi.settingOpacity.value),
+    theme: settingsUi.settingTheme.value as ThemeSelection,
+    appearancePreference: settingsUi.settingAppearance.value as AppSettings['appearancePreference'],
+    cursorStyle: settingsUi.settingCursorStyle.value as CursorStyle,
+    cursorBlink: settingsUi.settingCursorBlink.checked,
+    vibrancy: settingsUi.settingVibrancy.checked
   };
 }
 
 function closeSettingsPanel(discardPreview: boolean): void {
+  if (!settingsUi) {
+    return;
+  }
+
   if (discardPreview && settingsPreviewBaseline) {
     settings = settingsPreviewBaseline;
     applySettingsToAllTabs();
@@ -1151,34 +1236,21 @@ function closeSettingsPanel(discardPreview: boolean): void {
   }
 
   settingsPreviewBaseline = null;
-  ui.settingsPanel.classList.remove('open');
-  ui.settingsPanel.setAttribute('aria-hidden', 'true');
-  ui.settingsScrim.classList.remove('open');
+  settingsUi.settingsPanel.classList.remove('open');
+  settingsUi.settingsPanel.setAttribute('aria-hidden', 'true');
+  settingsUi.settingsScrim.classList.remove('open');
   ui.terminalHost.classList.remove('panel-open');
   setTimeout(() => {
     if (!isSettingsOpen()) {
-      ui.settingsScrim.classList.add('hidden');
+      settingsUi.settingsScrim.classList.add('hidden');
     }
   }, 280);
   activeTab()?.term.focus();
 }
 
 function openSettings(): void {
-  if (isSettingsOpen()) {
-    focusSelectedThemeSwatch();
-    return;
-  }
-
-  settingsPreviewBaseline = structuredClone(settings);
-  syncSettingsFormFromState(settings);
-
-  ui.settingsScrim.classList.remove('hidden');
-  ui.terminalHost.classList.add('panel-open');
-  requestAnimationFrame(() => {
-    ui.settingsPanel.classList.add('open');
-    ui.settingsPanel.setAttribute('aria-hidden', 'false');
-    ui.settingsScrim.classList.add('open');
-    focusSelectedThemeSwatch();
+  void window.terminalAPI.openSettingsWindow().catch(() => {
+    toasts.show('Unable to open settings window.', 'error', 0);
   });
 }
 
@@ -1200,6 +1272,10 @@ function previewSettingsFromForm(): void {
 }
 
 async function saveSettingsFromForm(): Promise<void> {
+  if (!settingsUi) {
+    return;
+  }
+
   const patch = settingsPatchFromForm();
   settings = await window.terminalAPI.updateSettings(patch);
   settingsPreviewBaseline = null;
@@ -1303,7 +1379,7 @@ function commandPaletteActions(): CommandPaletteAction[] {
     {
       id: 'settings',
       title: 'Open Settings',
-      description: 'Open the settings drawer',
+      description: 'Open the settings window',
       shortcut: 'Cmd/Ctrl+,',
       keywords: ['settings', 'preferences', 'config'],
       run: openSettings
@@ -1495,6 +1571,19 @@ function bindSystemAppearanceEvents(): void {
   });
 }
 
+function bindSettingsEvents(): void {
+  window.terminalAPI.onSettingsChanged((event) => {
+    settings = event.settings;
+    applySettingsToAllTabs();
+    if (settingsUi && isSettingsOpen()) {
+      syncSettingsFormFromState(settings);
+    }
+    renderTabStrip();
+    updateStatus();
+    syncCommandPaletteActions();
+  });
+}
+
 function applyStaticIcons(): void {
   ui.searchButton.innerHTML = icon('search', 14);
   ui.searchPrev.innerHTML = icon('chevron-up', 14);
@@ -1502,7 +1591,9 @@ function applyStaticIcons(): void {
   ui.searchClose.innerHTML = icon('close', 13);
   ui.newTabButton.innerHTML = icon('plus', 14);
   ui.settingsButton.innerHTML = icon('gear', 15);
-  ui.settingsClose.innerHTML = icon('close', 14);
+  if (settingsUi) {
+    settingsUi.settingsClose.innerHTML = icon('close', 14);
+  }
   setSearchToggleState(ui.searchCase, false);
   setSearchToggleState(ui.searchRegex, false);
   syncSearchCounter();
@@ -1715,64 +1806,66 @@ function bindUI(): void {
   ui.searchPrev.addEventListener('click', () => runSearch(false, false));
   ui.searchClose.addEventListener('click', () => closeSearch());
 
-  ui.settingThemeSwatches.addEventListener('click', (event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) {
-      return;
-    }
+  if (settingsUi) {
+    settingsUi.settingThemeSwatches.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
 
-    const swatch = target.closest<HTMLButtonElement>('.theme-swatch');
-    const theme = swatch?.dataset.theme;
-    if (!swatch || !theme) {
-      return;
-    }
+      const swatch = target.closest<HTMLButtonElement>('.theme-swatch');
+      const theme = swatch?.dataset.theme;
+      if (!swatch || !theme) {
+        return;
+      }
 
-    if (ui.settingTheme.value !== theme) {
-      ui.settingTheme.value = theme;
-      syncThemeSwatches();
+      if (settingsUi.settingTheme.value !== theme) {
+        settingsUi.settingTheme.value = theme;
+        syncThemeSwatches();
+        previewSettingsFromForm();
+      }
+    });
+
+    const onSettingsFormChange = (event: Event): void => {
+      if (!isSettingsOpen()) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (target instanceof HTMLInputElement && target.type === 'range') {
+        setRangeFill(target);
+      }
+
       previewSettingsFromForm();
-    }
-  });
+    };
+    settingsUi.settingsForm.addEventListener('input', onSettingsFormChange);
+    settingsUi.settingsForm.addEventListener('change', onSettingsFormChange);
 
-  const onSettingsFormChange = (event: Event): void => {
-    if (!isSettingsOpen()) {
-      return;
-    }
+    settingsUi.settingsForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void saveSettingsFromForm();
+    });
 
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
+    settingsUi.settingsSave.addEventListener('click', () => {
+      void saveSettingsFromForm();
+    });
 
-    if (target instanceof HTMLInputElement && target.type === 'range') {
-      setRangeFill(target);
-    }
+    settingsUi.settingsCancel.addEventListener('click', () => {
+      closeSettingsPanel(true);
+    });
 
-    previewSettingsFromForm();
-  };
-  ui.settingsForm.addEventListener('input', onSettingsFormChange);
-  ui.settingsForm.addEventListener('change', onSettingsFormChange);
+    settingsUi.settingsClose.addEventListener('click', () => {
+      closeSettingsPanel(true);
+    });
 
-  ui.settingsForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    void saveSettingsFromForm();
-  });
-
-  ui.settingsSave.addEventListener('click', () => {
-    void saveSettingsFromForm();
-  });
-
-  ui.settingsCancel.addEventListener('click', () => {
-    closeSettingsPanel(true);
-  });
-
-  ui.settingsClose.addEventListener('click', () => {
-    closeSettingsPanel(true);
-  });
-
-  ui.settingsScrim.addEventListener('click', () => {
-    closeSettingsPanel(true);
-  });
+    settingsUi.settingsScrim.addEventListener('click', () => {
+      closeSettingsPanel(true);
+    });
+  }
 
   ui.tabStrip.addEventListener('scroll', () => {
     updateTabStripOverflow();
@@ -1819,6 +1912,7 @@ async function boot(): Promise<void> {
   bindKeyboardShortcuts();
   bindMenuActions();
   bindSessionEvents();
+  bindSettingsEvents();
   bindSystemAppearanceEvents();
   startGitStatusPolling();
   await createTab();

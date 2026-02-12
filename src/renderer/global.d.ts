@@ -11,7 +11,8 @@ import type {
   SystemAppearanceEvent,
   SessionWriteRequest,
   GitStatus,
-  SettingsPatch
+  SettingsPatch,
+  SettingsChangedEvent
 } from '../shared/types';
 
 interface TerminalAPI {
@@ -21,6 +22,7 @@ interface TerminalAPI {
   getGitStatus: (cwd: string) => Promise<GitStatus | null>;
   getSettings: () => Promise<AppSettings>;
   updateSettings: (patch: SettingsPatch) => Promise<AppSettings>;
+  openSettingsWindow: () => Promise<void>;
   createSession: (request: CreateSessionRequest) => Promise<SessionSummary>;
   writeToSession: (request: SessionWriteRequest) => void;
   resizeSession: (request: SessionResizeRequest) => void;
@@ -29,6 +31,7 @@ interface TerminalAPI {
   onSessionExit: (callback: (event: SessionExitEvent) => void) => () => void;
   onSessionContext: (callback: (event: SessionContextEvent) => void) => () => void;
   onMenuAction: (callback: (action: MenuAction) => void) => () => void;
+  onSettingsChanged: (callback: (event: SettingsChangedEvent) => void) => () => void;
   onSystemAppearanceChanged: (callback: (event: SystemAppearanceEvent) => void) => () => void;
 }
 

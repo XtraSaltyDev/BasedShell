@@ -12,7 +12,8 @@ import type {
   SessionResizeRequest,
   SystemAppearanceEvent,
   SessionWriteRequest,
-  SettingsPatch
+  SettingsPatch,
+  SettingsChangedEvent
 } from '../shared/types';
 
 function subscribe<T>(channel: string, callback: (event: T) => void): () => void {
@@ -34,6 +35,7 @@ const api = {
   getGitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke('git:status', cwd),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: SettingsPatch): Promise<AppSettings> => ipcRenderer.invoke('settings:update', patch),
+  openSettingsWindow: (): Promise<void> => ipcRenderer.invoke('settings:open-window'),
   createSession: (request: CreateSessionRequest): Promise<SessionSummary> =>
     ipcRenderer.invoke('terminal:create-session', request),
   writeToSession: (request: SessionWriteRequest): void => ipcRenderer.send('terminal:write', request),
@@ -44,6 +46,8 @@ const api = {
   onSessionContext: (callback: (event: SessionContextEvent) => void): (() => void) =>
     subscribe('terminal:context', callback),
   onMenuAction: (callback: (action: MenuAction) => void): (() => void) => subscribe('menu:action', callback),
+  onSettingsChanged: (callback: (event: SettingsChangedEvent) => void): (() => void) =>
+    subscribe('settings:changed', callback),
   onSystemAppearanceChanged: (callback: (event: SystemAppearanceEvent) => void): (() => void) =>
     subscribe('system:appearance-changed', callback)
 };

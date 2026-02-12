@@ -9,6 +9,7 @@ import type {
   GitStatus,
   SessionResizeRequest,
   SessionWriteRequest,
+  SettingsChangedEvent,
   SystemAppearanceEvent,
   SettingsPatch,
   WindowState
@@ -20,6 +21,7 @@ import { SettingsService } from './settings';
 import { JsonStore } from './storage';
 
 let mainWindow: BrowserWindow | null = null;
+let settingsWindow: BrowserWindow | null = null;
 let sessionManager: SessionManager | null = null;
 let settingsService: SettingsService | null = null;
 let windowStateStore: JsonStore<WindowState> | null = null;
@@ -54,6 +56,88 @@ function applyWindowTheme(window: BrowserWindow, settings: AppSettings): void {
 
   if (process.platform === 'darwin') {
     window.setVibrancy(settings.vibrancy ? 'under-window' : null);
+  }
+}
+
+function rendererUrlFor(page: 'index.html' | 'settings.html'): string | null {
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+  if (!rendererUrl) {
+    return null;
+  }
+
+  const normalized = rendererUrl.endsWith('/') ? rendererUrl : `${rendererUrl}/`;
+  return new URL(page, normalized).toString();
+}
+
+function loadRendererPage(window: BrowserWindow, page: 'index.html' | 'settings.html'): void {
+  const pageUrl = rendererUrlFor(page);
+  if (pageUrl) {
+    window.loadURL(pageUrl).catch(() => {
+      // Renderer development server can disappear during restarts.
+    });
+    return;
+  }
+
+  window.loadFile(path.join(__dirname, '..', 'renderer', page)).catch(() => {
+    // No-op: load failures are surfaced by Electron.
+  });
+}
+
+function openSettingsWindow(): void {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (settingsWindow.isMinimized()) {
+      settingsWindow.restore();
+    }
+    settingsWindow.focus();
+    return;
+  }
+
+  if (!settingsService) {
+    return;
+  }
+
+  const settings = settingsService.get();
+  const backgroundColor = settings.vibrancy ? '#00000000' : resolveWindowBackground(settings);
+  const useVibrancy = process.platform === 'darwin' && settings.vibrancy;
+
+  settingsWindow = new BrowserWindow({
+    width: 940,
+    height: 760,
+    minWidth: 760,
+    minHeight: 560,
+    title: 'BasedShell Settings',
+    backgroundColor,
+    parent: mainWindow ?? undefined,
+    transparent: useVibrancy,
+    vibrancy: useVibrancy ? 'under-window' : undefined,
+    visualEffectState: useVibrancy ? 'active' : undefined,
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    trafficLightPosition: process.platform === 'darwin' ? { x: 14, y: 14 } : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload', 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      spellcheck: false
+    }
+  });
+
+  settingsWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  loadRendererPage(settingsWindow, 'settings.html');
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+}
+
+function sendSettingsChanged(settings: AppSettings): void {
+  const payload: SettingsChangedEvent = { settings };
+  if (mainWindow) {
+    mainWindow.webContents.send('settings:changed', payload);
+  }
+
+  if (settingsWindow) {
+    settingsWindow.webContents.send('settings:changed', payload);
   }
 }
 
@@ -137,15 +221,7 @@ function createMainWindow(settings: AppSettings): BrowserWindow {
 
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    window.loadURL(process.env.ELECTRON_RENDERER_URL).catch(() => {
-      // Renderer development server can disappear during restarts.
-    });
-  } else {
-    window.loadFile(path.join(__dirname, '..', 'renderer', 'index.html')).catch(() => {
-      // No-op: load failures are surfaced by Electron.
-    });
-  }
+  loadRendererPage(window, 'index.html');
 
   if (state.isMaximized) {
     window.maximize();
@@ -179,6 +255,10 @@ function registerIpcHandlers(): void {
     return settingsService.get();
   });
 
+  ipcMain.handle('settings:open-window', () => {
+    openSettingsWindow();
+  });
+
   ipcMain.handle('settings:update', (_, patch: SettingsPatch) => {
     if (!settingsService) {
       throw new Error('Settings unavailable');
@@ -188,6 +268,10 @@ function registerIpcHandlers(): void {
     if (mainWindow) {
       applyWindowTheme(mainWindow, next);
     }
+    if (settingsWindow) {
+      applyWindowTheme(settingsWindow, next);
+    }
+    sendSettingsChanged(next);
 
     return next;
   });
@@ -219,11 +303,16 @@ function setupApp(): void {
 
   sessionManager = new SessionManager(settingsService, () => mainWindow);
 
-  const menu = createAppMenu();
+  const menu = createAppMenu(() => {
+    openSettingsWindow();
+  });
   Menu.setApplicationMenu(menu);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.close();
+    }
     sessionManager?.dispose();
   });
 }
@@ -250,16 +339,27 @@ function initialize(): void {
     registerIpcHandlers();
     setupApp();
     nativeTheme.on('updated', () => {
-      if (!mainWindow || !settingsService) {
+      if (!settingsService) {
         return;
       }
 
-      applyWindowTheme(mainWindow, settingsService.get());
+      const settings = settingsService.get();
+      if (mainWindow) {
+        applyWindowTheme(mainWindow, settings);
+      }
+      if (settingsWindow) {
+        applyWindowTheme(settingsWindow, settings);
+      }
 
       const payload: SystemAppearanceEvent = {
         appearance: getSystemAppearance()
       };
-      mainWindow.webContents.send('system:appearance-changed', payload);
+      if (mainWindow) {
+        mainWindow.webContents.send('system:appearance-changed', payload);
+      }
+      if (settingsWindow) {
+        settingsWindow.webContents.send('system:appearance-changed', payload);
+      }
     });
 
     app.on('activate', () => {

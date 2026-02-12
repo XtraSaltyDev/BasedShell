@@ -14,7 +14,7 @@ function dispatch(action: MenuAction): void {
   win.webContents.send('menu:action', action);
 }
 
-export function createAppMenu(): Menu {
+export function createAppMenu(onOpenSettings?: () => void): Menu {
   const isMac = process.platform === 'darwin';
   const separator: Electron.MenuItemConstructorOptions = { type: 'separator' };
   const roleItem = (
@@ -32,7 +32,14 @@ export function createAppMenu(): Menu {
         {
           label: 'Preferences…',
           accelerator: 'CmdOrCtrl+,',
-          click: () => dispatch('settings')
+          click: () => {
+            if (onOpenSettings) {
+              onOpenSettings();
+              return;
+            }
+
+            dispatch('settings');
+          }
         },
         separator,
         roleItem('services'),
