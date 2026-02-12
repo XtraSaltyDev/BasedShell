@@ -1,6 +1,6 @@
 import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
-import { SearchAddon } from '@xterm/addon-search';
+import { SearchAddon, type ISearchOptions } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import type {
@@ -45,6 +45,8 @@ interface TabState {
   exited: boolean;
   hasUnreadOutput: boolean;
   hasRecentOutput: boolean;
+  searchResultIndex: number;
+  searchResultCount: number;
   outputPulseTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -62,6 +64,8 @@ const dom = {
   tabStrip: document.querySelector<HTMLDivElement>('#tab-strip'),
   newTabButton: document.querySelector<HTMLButtonElement>('#new-tab-button'),
   settingsButton: document.querySelector<HTMLButtonElement>('#settings-button'),
+  searchButton: document.querySelector<HTMLButtonElement>('#search-button'),
+  searchInline: document.querySelector<HTMLDivElement>('#search-inline'),
   terminalHost: document.querySelector<HTMLDivElement>('#terminal-host'),
   statusLeft: document.querySelector<HTMLDivElement>('#status-left'),
   statusRight: document.querySelector<HTMLDivElement>('#status-right'),
@@ -77,9 +81,10 @@ const dom = {
   commandPalette: document.querySelector<HTMLElement>('#command-palette'),
   paletteInput: document.querySelector<HTMLInputElement>('#palette-input'),
   paletteResults: document.querySelector<HTMLElement>('#palette-results'),
-  searchPanel: document.querySelector<HTMLDivElement>('#search-panel'),
   searchInput: document.querySelector<HTMLInputElement>('#search-input'),
-  searchCase: document.querySelector<HTMLInputElement>('#search-case-sensitive'),
+  searchCounter: document.querySelector<HTMLSpanElement>('#search-counter'),
+  searchCase: document.querySelector<HTMLButtonElement>('#search-case-sensitive'),
+  searchRegex: document.querySelector<HTMLButtonElement>('#search-regex'),
   searchPrev: document.querySelector<HTMLButtonElement>('#search-prev'),
   searchNext: document.querySelector<HTMLButtonElement>('#search-next'),
   searchClose: document.querySelector<HTMLButtonElement>('#search-close'),
@@ -128,6 +133,8 @@ const ui = {
   tabStrip: assertDom(dom.tabStrip, '#tab-strip'),
   newTabButton: assertDom(dom.newTabButton, '#new-tab-button'),
   settingsButton: assertDom(dom.settingsButton, '#settings-button'),
+  searchButton: assertDom(dom.searchButton, '#search-button'),
+  searchInline: assertDom(dom.searchInline, '#search-inline'),
   terminalHost: assertDom(dom.terminalHost, '#terminal-host'),
   statusLeft: assertDom(dom.statusLeft, '#status-left'),
   statusRight: assertDom(dom.statusRight, '#status-right'),
@@ -143,9 +150,10 @@ const ui = {
   commandPalette: assertDom(dom.commandPalette, '#command-palette'),
   paletteInput: assertDom(dom.paletteInput, '#palette-input'),
   paletteResults: assertDom(dom.paletteResults, '#palette-results'),
-  searchPanel: assertDom(dom.searchPanel, '#search-panel'),
   searchInput: assertDom(dom.searchInput, '#search-input'),
+  searchCounter: assertDom(dom.searchCounter, '#search-counter'),
   searchCase: assertDom(dom.searchCase, '#search-case-sensitive'),
+  searchRegex: assertDom(dom.searchRegex, '#search-regex'),
   searchPrev: assertDom(dom.searchPrev, '#search-prev'),
   searchNext: assertDom(dom.searchNext, '#search-next'),
   searchClose: assertDom(dom.searchClose, '#search-close'),
@@ -226,6 +234,10 @@ function applySettingsToAllTabs(): void {
 
   for (const tab of tabs.values()) {
     applyTabSettings(tab);
+  }
+
+  if (isSearchOpen()) {
+    refreshSearchForActiveTab();
   }
 }
 
@@ -727,6 +739,9 @@ function activateTab(tabId: string): void {
 
   renderTabStrip();
   updateStatus();
+  if (isSearchOpen()) {
+    refreshSearchForActiveTab();
+  }
   void refreshActiveGitStatus(false);
   const active = tabs.get(tabId);
   active?.fit.fit();
@@ -818,7 +833,9 @@ async function createTab(): Promise<void> {
     titleTooltip: initialTooltip,
     exited: false,
     hasUnreadOutput: false,
-    hasRecentOutput: false
+    hasRecentOutput: false,
+    searchResultIndex: -1,
+    searchResultCount: 0
   };
 
   tabs.set(tabId, tab);
@@ -829,6 +846,14 @@ async function createTab(): Promise<void> {
       sessionId: summary.sessionId,
       data
     });
+  });
+
+  search.onDidChangeResults(({ resultIndex, resultCount }) => {
+    tab.searchResultIndex = resultIndex;
+    tab.searchResultCount = resultCount;
+    if (tab.id === activeTabId) {
+      syncSearchCounter();
+    }
   });
 
   term.onTitleChange((incomingTitle) => {
@@ -864,6 +889,7 @@ async function closeTab(tabId: string): Promise<void> {
   }
 
   clearOutputPulse(tab);
+  clearTabSearch(tab);
   window.terminalAPI.closeSession(tab.sessionId);
   tab.term.dispose();
   tab.container.remove();
@@ -887,44 +913,166 @@ async function closeTab(tabId: string): Promise<void> {
   renderTabStrip();
   syncCommandPaletteActions();
   updateStatus();
+  if (isSearchOpen()) {
+    refreshSearchForActiveTab();
+  }
 }
 
 function activeTab(): TabState | undefined {
   return tabs.get(activeTabId);
 }
 
-function openSearch(): void {
-  ui.searchPanel.classList.remove('hidden');
-  ui.searchInput.focus();
-  ui.searchInput.select();
+function isSearchOpen(): boolean {
+  return ui.searchInline.classList.contains('open');
 }
 
-function closeSearch(): void {
-  ui.searchPanel.classList.add('hidden');
-  activeTab()?.term.focus();
+function isSearchCaseSensitive(): boolean {
+  return ui.searchCase.getAttribute('aria-pressed') === 'true';
 }
 
-function runSearch(forward: boolean): void {
+function isSearchRegexEnabled(): boolean {
+  return ui.searchRegex.getAttribute('aria-pressed') === 'true';
+}
+
+function setSearchToggleState(button: HTMLButtonElement, pressed: boolean): void {
+  button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  button.classList.toggle('active', pressed);
+}
+
+function searchDecorations(): NonNullable<ISearchOptions['decorations']> {
+  if (resolvedTheme.appearance === 'light') {
+    return {
+      matchBackground: '#CDEBDF',
+      matchBorder: '#5EAE8A',
+      matchOverviewRuler: '#5EAE8A',
+      activeMatchBackground: '#89C9AC',
+      activeMatchBorder: '#2D7A5D',
+      activeMatchColorOverviewRuler: '#2D7A5D'
+    };
+  }
+
+  return {
+    matchBackground: '#2A4F42',
+    matchBorder: '#4AA97F',
+    matchOverviewRuler: '#4AA97F',
+    activeMatchBackground: '#3B7F64',
+    activeMatchBorder: '#6AD7A7',
+    activeMatchColorOverviewRuler: '#6AD7A7'
+  };
+}
+
+function searchOptions(incremental: boolean): ISearchOptions {
+  return {
+    caseSensitive: isSearchCaseSensitive(),
+    regex: isSearchRegexEnabled(),
+    incremental,
+    decorations: searchDecorations()
+  };
+}
+
+function clearTabSearch(tab: TabState): void {
+  tab.search.clearDecorations();
+  tab.searchResultIndex = -1;
+  tab.searchResultCount = 0;
+}
+
+function clearSearchDecorationsForAllTabs(): void {
+  for (const tab of tabs.values()) {
+    clearTabSearch(tab);
+  }
+}
+
+function syncSearchCounter(): void {
+  const term = ui.searchInput.value;
+  const tab = activeTab();
+  if (!term) {
+    ui.searchCounter.textContent = 'Type to search';
+    return;
+  }
+
+  if (!tab) {
+    ui.searchCounter.textContent = 'No active tab';
+    return;
+  }
+
+  if (tab.searchResultCount < 1) {
+    ui.searchCounter.textContent = '0 matches';
+    return;
+  }
+
+  if (tab.searchResultIndex >= 0) {
+    ui.searchCounter.textContent = `${tab.searchResultIndex + 1}/${tab.searchResultCount}`;
+    return;
+  }
+
+  ui.searchCounter.textContent = `${tab.searchResultCount} matches`;
+}
+
+function runSearch(forward: boolean, incremental = false): void {
   const tab = activeTab();
   if (!tab) {
+    syncSearchCounter();
     return;
   }
 
   const term = ui.searchInput.value;
   if (!term) {
+    clearTabSearch(tab);
+    syncSearchCounter();
     return;
   }
 
-  const options = {
-    caseSensitive: ui.searchCase.checked,
-    incremental: true
-  };
-
-  if (forward) {
-    tab.search.findNext(term, options);
-  } else {
-    tab.search.findPrevious(term, options);
+  const options = searchOptions(incremental);
+  try {
+    const found = forward ? tab.search.findNext(term, options) : tab.search.findPrevious(term, options);
+    if (!found) {
+      tab.searchResultIndex = -1;
+    }
+    syncSearchCounter();
+  } catch {
+    tab.searchResultIndex = -1;
+    tab.searchResultCount = 0;
+    ui.searchCounter.textContent = 'Invalid regex';
   }
+}
+
+function refreshSearchForActiveTab(): void {
+  const tab = activeTab();
+  if (!tab) {
+    syncSearchCounter();
+    return;
+  }
+
+  if (!ui.searchInput.value) {
+    clearTabSearch(tab);
+    syncSearchCounter();
+    return;
+  }
+
+  runSearch(true, true);
+}
+
+function openSearch(): void {
+  if (!isSearchOpen()) {
+    ui.searchInline.classList.add('open');
+    ui.searchButton.classList.add('active');
+  }
+
+  ui.searchInput.focus();
+  ui.searchInput.select();
+  refreshSearchForActiveTab();
+}
+
+function closeSearch(): void {
+  if (!isSearchOpen()) {
+    return;
+  }
+
+  ui.searchInline.classList.remove('open');
+  ui.searchButton.classList.remove('active');
+  clearSearchDecorationsForAllTabs();
+  syncSearchCounter();
+  activeTab()?.term.focus();
 }
 
 function isSettingsOpen(): boolean {
@@ -1348,9 +1496,16 @@ function bindSystemAppearanceEvents(): void {
 }
 
 function applyStaticIcons(): void {
+  ui.searchButton.innerHTML = icon('search', 14);
+  ui.searchPrev.innerHTML = icon('chevron-up', 14);
+  ui.searchNext.innerHTML = icon('chevron-down', 14);
+  ui.searchClose.innerHTML = icon('close', 13);
   ui.newTabButton.innerHTML = icon('plus', 14);
   ui.settingsButton.innerHTML = icon('gear', 15);
   ui.settingsClose.innerHTML = icon('close', 14);
+  setSearchToggleState(ui.searchCase, false);
+  setSearchToggleState(ui.searchRegex, false);
+  syncSearchCounter();
 }
 
 function bindKeyboardShortcuts(): void {
@@ -1389,6 +1544,24 @@ function bindKeyboardShortcuts(): void {
     if (isMod && event.key === 'f') {
       event.preventDefault();
       openSearch();
+      return;
+    }
+
+    if (isMod && event.key.toLowerCase() === 'g') {
+      event.preventDefault();
+      if (!isSearchOpen()) {
+        openSearch();
+      }
+      runSearch(!event.shiftKey, false);
+      return;
+    }
+
+    if (event.key === 'F3') {
+      event.preventDefault();
+      if (!isSearchOpen()) {
+        openSearch();
+      }
+      runSearch(!event.shiftKey, false);
       return;
     }
 
@@ -1460,7 +1633,7 @@ function bindKeyboardShortcuts(): void {
         return;
       }
 
-      if (!ui.searchPanel.classList.contains('hidden')) {
+      if (isSearchOpen()) {
         event.preventDefault();
         closeSearch();
       }
@@ -1475,6 +1648,14 @@ function bindUI(): void {
 
   ui.settingsButton.addEventListener('click', () => {
     openSettings();
+  });
+
+  ui.searchButton.addEventListener('click', () => {
+    if (isSearchOpen()) {
+      closeSearch();
+      return;
+    }
+    openSearch();
   });
 
   ui.statusShell.addEventListener('click', () => {
@@ -1506,9 +1687,32 @@ function bindUI(): void {
     void cycleTheme();
   });
 
-  ui.searchInput.addEventListener('input', () => runSearch(true));
-  ui.searchNext.addEventListener('click', () => runSearch(true));
-  ui.searchPrev.addEventListener('click', () => runSearch(false));
+  ui.searchInput.addEventListener('input', () => runSearch(true, true));
+  ui.searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runSearch(!event.shiftKey, false);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeSearch();
+    }
+  });
+
+  ui.searchCase.addEventListener('click', () => {
+    setSearchToggleState(ui.searchCase, !isSearchCaseSensitive());
+    runSearch(true, true);
+  });
+
+  ui.searchRegex.addEventListener('click', () => {
+    setSearchToggleState(ui.searchRegex, !isSearchRegexEnabled());
+    runSearch(true, true);
+  });
+
+  ui.searchNext.addEventListener('click', () => runSearch(true, false));
+  ui.searchPrev.addEventListener('click', () => runSearch(false, false));
   ui.searchClose.addEventListener('click', () => closeSearch());
 
   ui.settingThemeSwatches.addEventListener('click', (event) => {
