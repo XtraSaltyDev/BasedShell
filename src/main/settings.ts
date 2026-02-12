@@ -4,12 +4,9 @@ import type {
   AppSettings,
   AppearancePreference,
   CursorStyle,
-  ProfileCard,
   SettingsPatch,
   TerminalProfile,
-  ThemeSelection,
-  WorkspacePreset,
-  WorkspaceStartupTab
+  ThemeSelection
 } from '../shared/types';
 import { JsonStore } from './storage';
 
@@ -62,78 +59,6 @@ function sanitizeProfile(candidate: TerminalProfile, fallbackCwd: string): Termi
   };
 }
 
-function sanitizeProfileCard(
-  candidate: ProfileCard,
-  fallbackProfileId: string
-): ProfileCard {
-  return {
-    id: candidate.id?.trim() || 'default-card',
-    name: candidate.name?.trim() || 'Default Card',
-    profileId: candidate.profileId?.trim() || fallbackProfileId,
-    theme: candidate.theme && THEMES.has(candidate.theme) ? candidate.theme : undefined,
-    fontFamily: candidate.fontFamily?.trim() || undefined,
-    fontSize:
-      Number.isFinite(candidate.fontSize) && Number(candidate.fontSize) > 0
-        ? clamp(Number(candidate.fontSize), 10, 28)
-        : undefined,
-    lineHeight:
-      Number.isFinite(candidate.lineHeight) && Number(candidate.lineHeight) > 0
-        ? clamp(Number(candidate.lineHeight), 1.0, 2.0)
-        : undefined,
-    cursorStyle: candidate.cursorStyle && CURSORS.has(candidate.cursorStyle) ? candidate.cursorStyle : undefined,
-    cursorBlink: typeof candidate.cursorBlink === 'boolean' ? candidate.cursorBlink : undefined,
-    padding:
-      Number.isFinite(candidate.padding) && Number(candidate.padding) >= 0
-        ? Math.round(clamp(Number(candidate.padding), 0, 64))
-        : undefined
-  };
-}
-
-function sanitizeStartupTab(
-  candidate: WorkspaceStartupTab,
-  defaultProfileCardId: string,
-  fallbackCwd: string
-): WorkspaceStartupTab {
-  const cwdCandidate = candidate.cwd?.trim() || fallbackCwd;
-  const cwd = fs.existsSync(cwdCandidate) ? cwdCandidate : fallbackCwd;
-
-  return {
-    id: candidate.id?.trim() || 'startup-tab',
-    profileCardId: candidate.profileCardId?.trim() || defaultProfileCardId,
-    cwd,
-    command: candidate.command?.trim() || ''
-  };
-}
-
-function sanitizeWorkspace(
-  candidate: WorkspacePreset,
-  fallbackProfileCardId: string,
-  fallbackCwd: string
-): WorkspacePreset {
-  const defaultProfileCardId = candidate.defaultProfileCardId?.trim() || fallbackProfileCardId;
-  const startupTabs = Array.isArray(candidate.startupTabs)
-    ? candidate.startupTabs.map((tab) => sanitizeStartupTab(tab, defaultProfileCardId, fallbackCwd))
-    : [];
-
-  return {
-    id: candidate.id?.trim() || 'default-workspace',
-    name: candidate.name?.trim() || 'Default Workspace',
-    layout: 'tabs',
-    defaultProfileCardId,
-    startupTabs:
-      startupTabs.length > 0
-        ? startupTabs
-        : [
-            {
-              id: 'startup-tab-1',
-              profileCardId: defaultProfileCardId,
-              cwd: fallbackCwd,
-              command: ''
-            }
-          ]
-  };
-}
-
 export class SettingsService {
   private readonly store: JsonStore<AppSettings>;
 
@@ -162,32 +87,7 @@ export class SettingsService {
           env: {}
         }
       ],
-      defaultProfileId: 'default',
-      profileCards: [
-        {
-          id: 'default-card',
-          name: 'Default Card',
-          profileId: 'default'
-        }
-      ],
-      defaultProfileCardId: 'default-card',
-      workspaces: [
-        {
-          id: 'default-workspace',
-          name: 'Default Workspace',
-          layout: 'tabs',
-          defaultProfileCardId: 'default-card',
-          startupTabs: [
-            {
-              id: 'startup-tab-1',
-              profileCardId: 'default-card',
-              cwd: home,
-              command: ''
-            }
-          ]
-        }
-      ],
-      activeWorkspaceId: 'default-workspace'
+      defaultProfileId: 'default'
     };
 
     this.store = new JsonStore<AppSettings>(path.join(userDataPath, 'settings.json'), defaults);
@@ -205,11 +105,7 @@ export class SettingsService {
       ...current,
       ...patch,
       profiles: patch.profiles ?? current.profiles,
-      defaultProfileId: patch.defaultProfileId ?? current.defaultProfileId,
-      profileCards: patch.profileCards ?? current.profileCards,
-      defaultProfileCardId: patch.defaultProfileCardId ?? current.defaultProfileCardId,
-      workspaces: patch.workspaces ?? current.workspaces,
-      activeWorkspaceId: patch.activeWorkspaceId ?? current.activeWorkspaceId
+      defaultProfileId: patch.defaultProfileId ?? current.defaultProfileId
     };
 
     const next = this.sanitize(merged);
@@ -238,55 +134,6 @@ export class SettingsService {
       args: ['-l'],
       cwd: process.env.HOME || '/',
       env: {}
-    };
-  }
-
-  findProfileCard(profileCardId?: string): ProfileCard {
-    const settings = this.store.read();
-    const id = profileCardId || settings.defaultProfileCardId;
-    const explicit = settings.profileCards.find((card) => card.id === id);
-    if (explicit) {
-      return explicit;
-    }
-
-    const fallback = settings.profileCards[0];
-    if (fallback) {
-      return fallback;
-    }
-
-    return {
-      id: 'default-card',
-      name: 'Default Card',
-      profileId: settings.defaultProfileId
-    };
-  }
-
-  findWorkspace(workspaceId?: string): WorkspacePreset {
-    const settings = this.store.read();
-    const id = workspaceId || settings.activeWorkspaceId;
-    const explicit = settings.workspaces.find((workspace) => workspace.id === id);
-    if (explicit) {
-      return explicit;
-    }
-
-    const fallback = settings.workspaces[0];
-    if (fallback) {
-      return fallback;
-    }
-
-    return {
-      id: 'default-workspace',
-      name: 'Default Workspace',
-      layout: 'tabs',
-      defaultProfileCardId: settings.defaultProfileCardId,
-      startupTabs: [
-        {
-          id: 'startup-tab-1',
-          profileCardId: settings.defaultProfileCardId,
-          cwd: process.env.HOME || '/',
-          command: ''
-        }
-      ]
     };
   }
 
@@ -329,90 +176,6 @@ export class SettingsService {
           ? fallbackProfile.id
           : 'default';
 
-    const profileCards = (candidate.profileCards || []).map((card) => sanitizeProfileCard(card, defaultProfileId));
-    const dedupedProfileCards: ProfileCard[] = [];
-    const seenCards = new Set<string>();
-    for (const profileCard of profileCards) {
-      if (seenCards.has(profileCard.id)) {
-        continue;
-      }
-
-      seenCards.add(profileCard.id);
-      dedupedProfileCards.push({
-        ...profileCard,
-        profileId: dedupedProfiles.some((profile) => profile.id === profileCard.profileId)
-          ? profileCard.profileId
-          : defaultProfileId
-      });
-    }
-
-    if (dedupedProfileCards.length === 0) {
-      dedupedProfileCards.push({
-        id: 'default-card',
-        name: 'Default Card',
-        profileId: defaultProfileId
-      });
-    }
-
-    const fallbackProfileCard = dedupedProfileCards[0];
-    const defaultProfileCardId =
-      candidate.defaultProfileCardId && dedupedProfileCards.some((card) => card.id === candidate.defaultProfileCardId)
-        ? candidate.defaultProfileCardId
-        : fallbackProfileCard
-          ? fallbackProfileCard.id
-          : 'default-card';
-
-    const workspaces = (candidate.workspaces || []).map((workspace) =>
-      sanitizeWorkspace(workspace, defaultProfileCardId, fallbackCwd)
-    );
-    const dedupedWorkspaces: WorkspacePreset[] = [];
-    const seenWorkspaces = new Set<string>();
-    for (const workspace of workspaces) {
-      if (seenWorkspaces.has(workspace.id)) {
-        continue;
-      }
-
-      seenWorkspaces.add(workspace.id);
-      const fallbackCardId = dedupedProfileCards.some((card) => card.id === workspace.defaultProfileCardId)
-        ? workspace.defaultProfileCardId
-        : defaultProfileCardId;
-      dedupedWorkspaces.push({
-        ...workspace,
-        defaultProfileCardId: fallbackCardId,
-        startupTabs: workspace.startupTabs.map((tab) => ({
-          ...tab,
-          profileCardId: dedupedProfileCards.some((card) => card.id === tab.profileCardId)
-            ? tab.profileCardId
-            : fallbackCardId
-        }))
-      });
-    }
-
-    if (dedupedWorkspaces.length === 0) {
-      dedupedWorkspaces.push({
-        id: 'default-workspace',
-        name: 'Default Workspace',
-        layout: 'tabs',
-        defaultProfileCardId,
-        startupTabs: [
-          {
-            id: 'startup-tab-1',
-            profileCardId: defaultProfileCardId,
-            cwd: fallbackCwd,
-            command: ''
-          }
-        ]
-      });
-    }
-
-    const fallbackWorkspace = dedupedWorkspaces[0];
-    const activeWorkspaceId =
-      candidate.activeWorkspaceId && dedupedWorkspaces.some((workspace) => workspace.id === candidate.activeWorkspaceId)
-        ? candidate.activeWorkspaceId
-        : fallbackWorkspace
-          ? fallbackWorkspace.id
-          : 'default-workspace';
-
     return {
       fontFamily:
         typeof candidate.fontFamily === 'string' && candidate.fontFamily.trim().length > 0
@@ -430,11 +193,7 @@ export class SettingsService {
         : 'system',
       vibrancy: Boolean(candidate.vibrancy),
       profiles: dedupedProfiles,
-      defaultProfileId,
-      profileCards: dedupedProfileCards,
-      defaultProfileCardId,
-      workspaces: dedupedWorkspaces,
-      activeWorkspaceId
+      defaultProfileId
     };
   }
 }

@@ -57,9 +57,6 @@
           </button>
         </div>
         <div id="status-right" class="status-group">
-          <button id="status-workspace" class="status-segment" type="button" title="Active workspace">
-            Workspace
-          </button>
           <button id="status-context" class="status-segment" type="button" title="Last process exit code and duration">
             Context
           </button>
@@ -167,110 +164,6 @@
             <span>Vibrancy (macOS)</span>
             <input id="setting-vibrancy" type="checkbox" />
           </label>
-        </section>
-
-        <section class="settings-section">
-          <h3>Workspace</h3>
-
-          <label>
-            Active workspace
-            <select id="setting-workspace"></select>
-          </label>
-
-          <label>
-            Workspace name
-            <input id="setting-workspace-name" type="text" />
-          </label>
-
-          <label>
-            Default profile card
-            <select id="setting-workspace-default-card"></select>
-          </label>
-
-          <div class="settings-subsection">
-            <span class="settings-subtitle">Startup tabs</span>
-            <div id="setting-workspace-tabs" class="workspace-tabs-editor"></div>
-            <button id="setting-workspace-add-tab" type="button">Add Startup Tab</button>
-          </div>
-
-          <div class="settings-inline-actions">
-            <button id="setting-workspace-new" type="button">New Workspace</button>
-            <button id="setting-workspace-delete" type="button">Delete Workspace</button>
-            <button id="setting-workspace-capture" type="button">Save Current Tabs</button>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <h3>Profile Cards</h3>
-
-          <label>
-            Card
-            <select id="setting-profile-card"></select>
-          </label>
-
-          <label>
-            Card name
-            <input id="setting-card-name" type="text" />
-          </label>
-
-          <label>
-            Shell profile
-            <select id="setting-card-profile"></select>
-          </label>
-
-          <label>
-            Theme override
-            <select id="setting-card-theme">
-              <option value="">Use app theme</option>
-              <option value="system">System</option>
-              <option value="graphite">Graphite</option>
-              <option value="midnight">Midnight</option>
-              <option value="solarized-dark">Solarized</option>
-              <option value="paper">Paper</option>
-              <option value="aurora">Aurora</option>
-              <option value="noir">Noir</option>
-              <option value="fog">Fog</option>
-            </select>
-          </label>
-
-          <label>
-            Font size override
-            <input id="setting-card-font-size" type="number" min="10" max="28" step="1" placeholder="Use app default" />
-          </label>
-
-          <label>
-            Line height override
-            <input id="setting-card-line-height" type="number" min="1" max="2" step="0.05" placeholder="Use app default" />
-          </label>
-
-          <label>
-            Cursor style override
-            <select id="setting-card-cursor-style">
-              <option value="">Use app default</option>
-              <option value="block">Block</option>
-              <option value="bar">Bar</option>
-              <option value="underline">Underline</option>
-            </select>
-          </label>
-
-          <label>
-            Cursor blink override
-            <select id="setting-card-cursor-blink">
-              <option value="">Use app default</option>
-              <option value="true">Blink On</option>
-              <option value="false">Blink Off</option>
-            </select>
-          </label>
-
-          <label>
-            Terminal padding (px)
-            <input id="setting-card-padding" type="number" min="0" max="64" step="1" placeholder="Use app default" />
-          </label>
-
-          <div class="settings-inline-actions">
-            <button id="setting-card-new" type="button">New Card</button>
-            <button id="setting-card-delete" type="button">Delete Card</button>
-          </div>
         </section>
       </form>
 
