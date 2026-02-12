@@ -94,6 +94,7 @@ body {
   padding: 0 var(--space-3) 0 var(--space-2);
   gap: var(--space-2);
   cursor: pointer;
+  user-select: none;
   transition:
     background var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard),
@@ -116,6 +117,41 @@ body {
   background: var(--tab-bg-active);
   color: var(--tab-fg-active);
   border-color: var(--tab-border-active);
+}
+
+.tab:focus-visible {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--tab-border-active));
+  box-shadow: var(--shadow-glow);
+  outline: none;
+}
+
+.tab.drag-source {
+  opacity: 0.58;
+  border-style: dashed;
+}
+
+#tab-strip.tab-dragging .tab:not(.drag-source) {
+  cursor: grabbing;
+}
+
+.tab.drag-over-before::before,
+.tab.drag-over-after::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.tab.drag-over-before::before {
+  left: 1px;
+}
+
+.tab.drag-over-after::after {
+  right: 1px;
 }
 
 .tab.exit .tab-title {
@@ -228,6 +264,10 @@ body {
 
 .tab:hover .tab-close {
   opacity: 0.7;
+}
+
+.tab:focus-within .tab-close {
+  opacity: 0.75;
 }
 
 .tab-close:hover {
@@ -1209,6 +1249,10 @@ select:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  #tab-strip {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {

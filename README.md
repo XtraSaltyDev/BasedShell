@@ -13,6 +13,7 @@ BasedShell is built with Electron, `node-pty`, and `xterm.js`, and now includes 
 
 - Real PTY shell sessions using your login shell
 - Multi-tab workflow with smooth enter/exit reconciliation
+- Drag-to-reorder tabs with keyboard-friendly focus behavior
 - Repo/branch-aware tab titles (with SSH context support)
 - Interactive productivity status bar:
   - Shell/Process
@@ -26,6 +27,7 @@ BasedShell is built with Electron, `node-pty`, and `xterm.js`, and now includes 
   - Keyboard navigation
   - Recent actions
   - Pin favorites
+  - Built-in release gate QA action (contrast + render cost checks)
 - Search redesign (inline topbar search):
   - Match counter (`current/total`)
   - Case-sensitive + regex toggles
@@ -79,6 +81,7 @@ npm run package:mac
 | Re-run last failed command | Command palette action: `Re-run Last Failed Command` |
 | Clear terminal | `Cmd/Ctrl+K` |
 | Jump to tab 1-9 | `Cmd/Ctrl+1..9` |
+| Tablist navigation (when tab focused) | `←` / `→`, `Home`, `End`, `Delete` |
 | Font zoom in/out/reset | `Cmd/Ctrl+Plus`, `Cmd/Ctrl+-`, `Cmd/Ctrl+0` |
 
 ## 🧠 Workspace + Profile Card Model
