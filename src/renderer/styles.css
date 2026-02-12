@@ -83,7 +83,7 @@ body {
 .tab {
   position: relative;
   overflow: hidden;
-  border: var(--size-border-default) solid transparent;
+  border: var(--size-border-default) solid var(--tab-border-idle);
   border-radius: var(--radius-md);
   background: var(--tab-bg-idle);
   color: var(--tab-fg-idle);
@@ -95,7 +95,9 @@ body {
   padding: 0 var(--space-3) 0 var(--space-2);
   gap: var(--space-2);
   cursor: pointer;
-  box-shadow: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tab-border-idle) 70%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-bg-base) 35%, transparent);
   transition:
     background var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard),
@@ -107,6 +109,10 @@ body {
 .tab:hover {
   background: var(--tab-bg-hover);
   color: var(--tab-fg-active);
+  border-color: color-mix(in srgb, var(--tab-border-active) 78%, var(--tab-border-idle));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tab-border-active) 58%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-bg-base) 28%, transparent);
 }
 
 .tab:active {
@@ -118,7 +124,10 @@ body {
   background: var(--tab-bg-active);
   color: var(--tab-fg-active);
   border-color: var(--tab-border-active);
-  box-shadow: var(--shadow-sm), var(--shadow-inset);
+  box-shadow:
+    var(--shadow-sm),
+    var(--shadow-inset),
+    inset 0 0 0 1px color-mix(in srgb, var(--tab-border-active) 72%, transparent);
 }
 
 .tab.exit .tab-title {
@@ -856,7 +865,8 @@ input::placeholder {
   display: grid;
   gap: var(--space-5);
   padding: var(--space-4);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .settings-section {
@@ -950,10 +960,22 @@ input::placeholder {
 }
 
 .workspace-tab-row {
-  display: grid;
-  grid-template-columns: minmax(100px, 130px) minmax(120px, 1fr) minmax(120px, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
+}
+
+.workspace-tab-row .workspace-tab-card {
+  flex: 1 1 140px;
+}
+
+.workspace-tab-row .workspace-tab-cwd {
+  flex: 2 1 210px;
+}
+
+.workspace-tab-row .workspace-tab-command {
+  flex: 2 1 210px;
 }
 
 .workspace-tab-row input,
@@ -962,6 +984,7 @@ input::placeholder {
 }
 
 .workspace-tab-remove {
+  flex: 0 0 auto;
   border: var(--size-border-default) solid color-mix(in srgb, var(--color-danger) 55%, var(--color-border-default));
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-danger-muted) 30%, transparent);
@@ -1063,7 +1086,8 @@ input::placeholder {
   }
 
   .workspace-tab-row {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
