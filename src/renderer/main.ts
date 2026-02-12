@@ -24,6 +24,23 @@ import {
   type CommandPaletteAction,
   type CommandPaletteController
 } from './command-palette';
+import {
+  type ShellCommandReport,
+  type SmartHistoryEntry,
+  type TaskPreset,
+  loadSmartHistory,
+  loadTaskPresets,
+  saveSmartHistory,
+  saveTaskPresets,
+  sortHistoryForPalette,
+  sortTasksForPalette,
+  toggleHistoryFavorite,
+  toggleTaskFavorite,
+  touchTaskRun,
+  upsertSmartHistoryEntry,
+  findLastFailedHistory,
+  extractShellCommandReports
+} from './productivity';
 import { createToastManager } from './toast';
 import './tokens.css';
 import './styles.css';
@@ -51,6 +68,7 @@ interface TabState {
   searchResultIndex: number;
   searchResultCount: number;
   profileCardId: string;
+  shellMetadataBuffer: string;
   outputPulseTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -153,6 +171,8 @@ let gitPollTimer: ReturnType<typeof setInterval> | undefined;
 let lastCommandContext: CommandContext | null = null;
 let editingWorkspaceId = '';
 let editingProfileCardId = '';
+let taskPresets: TaskPreset[] = [];
+let smartHistory: SmartHistoryEntry[] = [];
 
 function assertDom<T>(value: T | null, id: string): T {
   if (!value) {
@@ -999,7 +1019,8 @@ async function createTab(options: CreateTabOptions = {}): Promise<void> {
     hasRecentOutput: false,
     searchResultIndex: -1,
     searchResultCount: 0,
-    profileCardId: profileCard.id
+    profileCardId: profileCard.id,
+    shellMetadataBuffer: ''
   };
 
   tabs.set(tabId, tab);
@@ -1105,6 +1126,259 @@ function workspaceById(workspaceId: string | undefined): WorkspacePreset | undef
 
 function makeId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function persistTaskPresets(): void {
+  saveTaskPresets(taskPresets);
+}
+
+function persistSmartHistory(): void {
+  saveSmartHistory(smartHistory);
+}
+
+function findProjectRootForCwd(cwd: string): string | null {
+  const normalized = normalizePath(cwd);
+  let best: string | null = null;
+
+  for (const status of gitStatusByCwd.values()) {
+    const root = normalizePath(status.root);
+    const isMatch = normalized === root || normalized.startsWith(`${root}/`);
+    if (!isMatch) {
+      continue;
+    }
+
+    if (!best || root.length > best.length) {
+      best = root;
+    }
+  }
+
+  return best;
+}
+
+function currentProjectRoot(): string | null {
+  const active = activeTab();
+  if (!active) {
+    return null;
+  }
+
+  return findProjectRootForCwd(active.cwd);
+}
+
+function groupLabelFromRoot(root: string): string {
+  const trimmed = normalizePath(root).replace(/\/+$/, '');
+  if (trimmed === '/') {
+    return '/';
+  }
+
+  const segments = trimmed.split('/').filter(Boolean);
+  return segments[segments.length - 1] || trimmed;
+}
+
+function runCommandInTerminal(command: string, preferredCwd?: string | null): void {
+  const trimmed = command.trim();
+  if (!trimmed) {
+    toasts.show('Command is empty.', 'info');
+    return;
+  }
+
+  const targetCwd = preferredCwd ? normalizePath(preferredCwd) : null;
+  const active = activeTab();
+  if (active) {
+    if (!targetCwd || active.cwd === targetCwd || active.cwd.startsWith(`${targetCwd}/`)) {
+      window.terminalAPI.writeToSession({
+        sessionId: active.sessionId,
+        data: `${trimmed}\r`
+      });
+      active.term.focus();
+      return;
+    }
+  }
+
+  void createTab({
+    profileCardId: defaultProfileCardForActiveWorkspace(),
+    cwd: targetCwd || active?.cwd || homeDirectory || '/',
+    startupCommand: trimmed
+  });
+}
+
+function runTaskPreset(task: TaskPreset, withArgs: boolean): void {
+  let command = task.command.trim();
+  if (!command) {
+    toasts.show(`Task "${task.name}" has no command.`, 'error', 0);
+    return;
+  }
+
+  if (withArgs) {
+    const args = window.prompt(`Additional args for "${task.name}"`, '');
+    if (args === null) {
+      return;
+    }
+
+    if (args.trim()) {
+      command = `${command} ${args.trim()}`;
+    }
+  }
+
+  runCommandInTerminal(command, task.preferredCwd || task.projectRoot);
+  taskPresets = touchTaskRun(taskPresets, task.id);
+  persistTaskPresets();
+  syncCommandPaletteActions();
+}
+
+async function createTaskPreset(scope: 'global' | 'project'): Promise<void> {
+  const active = activeTab();
+  let root = scope === 'project' ? currentProjectRoot() : null;
+  if (scope === 'project' && !root && active) {
+    try {
+      const status = await window.terminalAPI.getGitStatus(active.cwd);
+      if (status) {
+        const normalizedCwd = normalizePath(active.cwd);
+        root = normalizePath(status.root);
+        gitStatusByCwd.set(normalizedCwd, {
+          ...status,
+          fetchedAt: Date.now()
+        });
+        if (reconcileTabTitles()) {
+          renderTabStrip();
+        }
+        updateStatus();
+      }
+    } catch {
+      // Ignore git status fetch errors and fall back to scoped warning.
+    }
+  }
+
+  if (scope === 'project' && !root) {
+    toasts.show('Project task requires an active tab inside a git repository.', 'info');
+    return;
+  }
+
+  const defaultName = scope === 'project' ? 'Project Task' : 'Global Task';
+  const name = window.prompt('Task name', defaultName);
+  if (name === null) {
+    return;
+  }
+
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    toasts.show('Task name cannot be empty.', 'error', 0);
+    return;
+  }
+
+  const command = window.prompt('Task command', '');
+  if (command === null) {
+    return;
+  }
+
+  const trimmedCommand = command.trim();
+  if (!trimmedCommand) {
+    toasts.show('Task command cannot be empty.', 'error', 0);
+    return;
+  }
+
+  const next: TaskPreset = {
+    id: makeId('task'),
+    name: trimmedName,
+    command: trimmedCommand,
+    scope,
+    projectRoot: scope === 'project' ? root : null,
+    preferredCwd: active ? active.cwd : homeDirectory || '/',
+    favorite: false,
+    createdAt: Date.now(),
+    lastRunAt: null
+  };
+
+  taskPresets = [...taskPresets, next];
+  persistTaskPresets();
+  syncCommandPaletteActions();
+  toasts.show(`Saved task "${next.name}".`, 'success');
+}
+
+function deleteTaskPreset(taskId: string): void {
+  const target = taskPresets.find((task) => task.id === taskId);
+  if (!target) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Delete task "${target.name}"?`);
+  if (!confirmed) {
+    return;
+  }
+
+  taskPresets = taskPresets.filter((task) => task.id !== taskId);
+  persistTaskPresets();
+  syncCommandPaletteActions();
+  toasts.show(`Deleted task "${target.name}".`, 'success');
+}
+
+function toggleTaskPresetFavorite(taskId: string): void {
+  const current = taskPresets.find((task) => task.id === taskId);
+  if (!current) {
+    return;
+  }
+
+  taskPresets = toggleTaskFavorite(taskPresets, taskId);
+  persistTaskPresets();
+  syncCommandPaletteActions();
+  toasts.show(current.favorite ? `Removed favorite from "${current.name}".` : `Favorited "${current.name}".`, 'success');
+}
+
+function toggleHistoryEntryFavorite(entryId: string): void {
+  const current = smartHistory.find((entry) => entry.id === entryId);
+  if (!current) {
+    return;
+  }
+
+  smartHistory = toggleHistoryFavorite(smartHistory, entryId);
+  persistSmartHistory();
+  syncCommandPaletteActions();
+  toasts.show(
+    current.favorite ? `Removed favorite from "${truncateMiddle(current.command, 42)}".` : `Favorited history command.`,
+    'success'
+  );
+}
+
+function recordShellCommandReport(tab: TabState, report: ShellCommandReport): void {
+  const command = report.command.trim();
+  if (!command) {
+    return;
+  }
+
+  const cwd = normalizePath(report.cwd || tab.cwd);
+  tab.cwd = cwd;
+  const projectRoot = findProjectRootForCwd(cwd);
+  const groupRoot = projectRoot ?? cwd;
+  const groupLabel = groupLabelFromRoot(groupRoot);
+  smartHistory = upsertSmartHistoryEntry(
+    smartHistory,
+    {
+      ...report,
+      command,
+      cwd
+    },
+    groupRoot,
+    groupLabel
+  );
+  persistSmartHistory();
+
+  tab.lastExitCode = report.exitCode;
+  tab.lastExitDurationMs = report.durationMs;
+  lastCommandContext = {
+    exitCode: report.exitCode,
+    durationMs: report.durationMs,
+    at: Date.now()
+  };
+}
+
+function rerunLastFailedCommand(): void {
+  const failed = findLastFailedHistory(smartHistory, currentProjectRoot());
+  if (!failed) {
+    toasts.show('No failed command found in history.', 'info');
+    return;
+  }
+
+  runCommandInTerminal(failed.command, failed.cwd);
+  toasts.show(`Re-running failed command from ${failed.groupLabel}.`, 'info');
 }
 
 function snapshotCurrentTabs(defaultProfileCardId: string): WorkspaceStartupTab[] {
@@ -1942,6 +2216,34 @@ async function deleteProfileCard(profileCardId: string): Promise<void> {
   toasts.show(`Deleted ${target.name}.`, 'success');
 }
 
+function visibleTaskPresets(): TaskPreset[] {
+  const currentRoot = currentProjectRoot();
+  return sortTasksForPalette(
+    taskPresets.filter((task) => {
+      if (task.scope === 'global') {
+        return true;
+      }
+
+      if (!task.projectRoot || !currentRoot) {
+        return false;
+      }
+
+      return task.projectRoot === currentRoot;
+    })
+  );
+}
+
+function historyEntryMeta(entry: SmartHistoryEntry): string {
+  const exit =
+    entry.lastExitCode === null
+      ? 'Exit —'
+      : entry.lastExitCode === 0
+        ? 'Exit 0'
+        : `Exit ${entry.lastExitCode}`;
+  const duration = entry.lastDurationMs === null ? 'Duration —' : formatDuration(entry.lastDurationMs);
+  return `${entry.groupLabel} · ${exit} · ${duration} · ${entry.runCount} run${entry.runCount === 1 ? '' : 's'}`;
+}
+
 function commandPaletteActions(): CommandPaletteAction[] {
   const actions: CommandPaletteAction[] = [
     {
@@ -2039,8 +2341,81 @@ function commandPaletteActions(): CommandPaletteAction[] {
       description: 'Update active workspace startup tabs from current tabs',
       keywords: ['workspace', 'save', 'startup'],
       run: () => void saveCurrentTabsToWorkspace(settings.activeWorkspaceId)
+    },
+    {
+      id: 'task-create-global',
+      title: 'Create Global Task',
+      description: 'Define a reusable command available in every project',
+      keywords: ['task', 'global', 'preset', 'command'],
+      run: () => createTaskPreset('global')
+    },
+    {
+      id: 'task-create-project',
+      title: 'Create Project Task',
+      description: 'Define a reusable command scoped to the current repository',
+      keywords: ['task', 'project', 'preset', 'command'],
+      run: () => createTaskPreset('project')
+    },
+    {
+      id: 'history-rerun-failed',
+      title: 'Re-run Last Failed Command',
+      description: 'Run the most recent command with non-zero exit code',
+      keywords: ['history', 'failed', 'rerun', 'retry'],
+      run: rerunLastFailedCommand
     }
   ];
+
+  for (const task of visibleTaskPresets()) {
+    const scope = task.scope === 'project' ? 'project' : 'global';
+    const iconPrefix = task.favorite ? '★ ' : '';
+    actions.push({
+      id: `task-run:${task.id}`,
+      title: `${iconPrefix}Run Task: ${task.name}`,
+      description: `${scope} · ${task.command}`,
+      keywords: ['task', task.name, scope, 'run'],
+      run: () => runTaskPreset(task, false)
+    });
+    actions.push({
+      id: `task-run-args:${task.id}`,
+      title: `Run Task With Args: ${task.name}`,
+      description: 'Prompt for additional command arguments',
+      keywords: ['task', task.name, 'args', 'run'],
+      run: () => runTaskPreset(task, true)
+    });
+    actions.push({
+      id: `task-favorite:${task.id}`,
+      title: task.favorite ? `Unfavorite Task: ${task.name}` : `Favorite Task: ${task.name}`,
+      description: 'Pin this task in smart task ordering',
+      keywords: ['task', task.name, 'favorite', 'pin'],
+      run: () => toggleTaskPresetFavorite(task.id)
+    });
+    actions.push({
+      id: `task-delete:${task.id}`,
+      title: `Delete Task: ${task.name}`,
+      description: 'Remove this task preset',
+      keywords: ['task', task.name, 'delete', 'remove'],
+      run: () => deleteTaskPreset(task.id)
+    });
+  }
+
+  const historyEntries = sortHistoryForPalette(smartHistory, currentProjectRoot()).slice(0, 12);
+  for (const entry of historyEntries) {
+    const iconPrefix = entry.favorite ? '★ ' : '';
+    actions.push({
+      id: `history-run:${entry.id}`,
+      title: `${iconPrefix}History: ${truncateMiddle(entry.command, 56)}`,
+      description: historyEntryMeta(entry),
+      keywords: ['history', 'command', 'rerun', entry.groupLabel],
+      run: () => runCommandInTerminal(entry.command, entry.cwd)
+    });
+    actions.push({
+      id: `history-favorite:${entry.id}`,
+      title: entry.favorite ? `Unfavorite History Command` : `Favorite History Command`,
+      description: truncateMiddle(entry.command, 72),
+      keywords: ['history', 'favorite', 'pin', 'command'],
+      run: () => toggleHistoryEntryFavorite(entry.id)
+    });
+  }
 
   for (let index = 0; index < tabOrder.length; index += 1) {
     const tabId = tabOrder[index];
@@ -2145,8 +2520,30 @@ function bindSessionEvents(): void {
       return;
     }
 
-    tab.term.write(data);
-    markTabOutput(tab);
+    const parsed = extractShellCommandReports(data, tab.shellMetadataBuffer);
+    tab.shellMetadataBuffer = parsed.buffer;
+
+    if (parsed.cleanData.length > 0) {
+      tab.term.write(parsed.cleanData);
+      markTabOutput(tab);
+    }
+
+    if (parsed.reports.length === 0) {
+      return;
+    }
+
+    for (const report of parsed.reports) {
+      recordShellCommandReport(tab, report);
+    }
+
+    if (reconcileTabTitles()) {
+      renderTabStrip();
+    }
+    if (tab.id === activeTabId) {
+      updateStatus();
+      void refreshActiveGitStatus(true);
+    }
+    syncCommandPaletteActions();
   });
 
   window.terminalAPI.onSessionExit(({ sessionId, exitCode }) => {
@@ -2575,6 +2972,8 @@ function bindUI(): void {
 }
 
 async function boot(): Promise<void> {
+  taskPresets = loadTaskPresets();
+  smartHistory = loadSmartHistory();
   homeDirectory = await window.terminalAPI.getHomeDirectory();
   systemAppearance = await window.terminalAPI.getSystemAppearance();
   settings = await window.terminalAPI.getSettings();

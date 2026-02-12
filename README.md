@@ -36,6 +36,11 @@ BasedShell is built with Electron, `node-pty`, and `xterm.js`, and now includes 
   - Startup tab definitions
   - Save current tabs into workspace startup config
   - Per-card shell profile + visual overrides
+- Tasks + Smart History:
+  - Global and project-scoped task presets
+  - Run tasks directly from command palette (with optional args prompt)
+  - Directory-aware smart command history with favorites/pins
+  - Quick action to re-run the most recent failed command
 - Theme architecture with built-in themes:
   - `graphite`, `midnight`, `solarized-dark`, `paper`, `aurora`, `noir`, `fog`, `catppuccin-latte`, `catppuccin-frappe`, `catppuccin-macchiato`, `catppuccin-mocha`, and `system`
 - System appearance sync (`light`/`dark`) + optional macOS vibrancy
@@ -71,6 +76,7 @@ npm run package:mac
 | Previous search match | `Cmd/Ctrl+Shift+G` / `Shift+F3` / `Shift+Enter` |
 | Open settings | `Cmd/Ctrl+,` |
 | Open command palette | `Cmd/Ctrl+Shift+P` |
+| Re-run last failed command | Command palette action: `Re-run Last Failed Command` |
 | Clear terminal | `Cmd/Ctrl+K` |
 | Jump to tab 1-9 | `Cmd/Ctrl+1..9` |
 | Font zoom in/out/reset | `Cmd/Ctrl+Plus`, `Cmd/Ctrl+-`, `Cmd/Ctrl+0` |
@@ -96,6 +102,7 @@ npm run package:mac
 - `src/main` - Electron main process, IPC, menu, PTY orchestration, settings persistence
 - `src/preload` - secure renderer bridge (`window.terminalAPI`)
 - `src/renderer` - tabs, command palette, search, settings UI, workspaces, profile cards
+- `src/renderer/productivity.ts` - task presets, smart history persistence, shell metadata parsing
 - `src/shared` - cross-process types + theme metadata
 
 ## 📦 Runtime Notes
