@@ -1,4 +1,12 @@
-export type ThemeName = 'graphite' | 'midnight' | 'solarized-dark' | 'paper' | 'aurora' | 'noir' | 'fog';
+export type ThemeName =
+  | 'graphite'
+  | 'midnight'
+  | 'solarized-dark'
+  | 'paper'
+  | 'aurora'
+  | 'noir'
+  | 'fog'
+  | 'catppuccin';
 
 export type ThemeSelection = ThemeName | 'system';
 
@@ -7,6 +15,8 @@ export type AppearanceMode = 'light' | 'dark';
 export type AppearancePreference = 'system' | AppearanceMode;
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
+
+export type TabHostLabelMode = 'off' | 'ssh-only' | 'all';
 
 export interface TerminalAnsiTheme {
   background: string;
@@ -133,6 +143,7 @@ export interface AppSettings {
   backgroundOpacity: number;
   theme: ThemeSelection;
   appearancePreference: AppearancePreference;
+  tabHostLabelMode: TabHostLabelMode;
   vibrancy: boolean;
   profiles: TerminalProfile[];
   defaultProfileId: string;

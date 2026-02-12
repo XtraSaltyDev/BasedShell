@@ -113,6 +113,7 @@ const dom = {
   settingOpacity: document.querySelector<HTMLInputElement>('#setting-opacity'),
   settingTheme: document.querySelector<HTMLInputElement>('#setting-theme'),
   settingAppearance: document.querySelector<HTMLSelectElement>('#setting-appearance'),
+  settingTabHostMode: document.querySelector<HTMLSelectElement>('#setting-tab-host-mode'),
   settingCursorStyle: document.querySelector<HTMLSelectElement>('#setting-cursor-style'),
   settingCursorBlink: document.querySelector<HTMLInputElement>('#setting-cursor-blink'),
   settingVibrancy: document.querySelector<HTMLInputElement>('#setting-vibrancy'),
@@ -204,6 +205,7 @@ const ui = {
   settingOpacity: assertDom(dom.settingOpacity, '#setting-opacity'),
   settingTheme: assertDom(dom.settingTheme, '#setting-theme'),
   settingAppearance: assertDom(dom.settingAppearance, '#setting-appearance'),
+  settingTabHostMode: assertDom(dom.settingTabHostMode, '#setting-tab-host-mode'),
   settingCursorStyle: assertDom(dom.settingCursorStyle, '#setting-cursor-style'),
   settingCursorBlink: assertDom(dom.settingCursorBlink, '#setting-cursor-blink'),
   settingVibrancy: assertDom(dom.settingVibrancy, '#setting-vibrancy'),
@@ -446,9 +448,22 @@ function fallbackTabLabel(cwd: string): string {
   return pathTail(segments, 1);
 }
 
+function tabHostLabel(tab: TabState): string | null {
+  switch (settings.tabHostLabelMode) {
+    case 'off':
+      return null;
+    case 'ssh-only':
+      return tab.sshHost;
+    case 'all':
+      return tab.sshHost ?? tab.sshHostHint;
+    default:
+      return tab.sshHost;
+  }
+}
+
 function resolveTabTitle(tab: TabState): { title: string; tooltip: string } {
   const cwd = normalizePath(tab.cwd || '/');
-  const host = tab.sshHost ?? tab.sshHostHint;
+  const host = tabHostLabel(tab);
   const git = gitStatusByCwd.get(tab.cwd);
 
   if (git) {
@@ -730,7 +745,8 @@ const themeCycleOrder: ThemeSelection[] = [
   'paper',
   'aurora',
   'noir',
-  'fog'
+  'fog',
+  'catppuccin'
 ];
 
 async function cycleTheme(): Promise<void> {
@@ -1525,6 +1541,7 @@ function syncSettingsFormFromState(source: AppSettings): void {
   ui.settingOpacity.value = String(source.backgroundOpacity);
   ui.settingTheme.value = source.theme;
   ui.settingAppearance.value = source.appearancePreference;
+  ui.settingTabHostMode.value = source.tabHostLabelMode;
   ui.settingCursorStyle.value = source.cursorStyle;
   ui.settingCursorBlink.checked = source.cursorBlink;
   ui.settingVibrancy.checked = source.vibrancy;
@@ -1590,6 +1607,7 @@ function settingsPatchFromForm(): SettingsPatch {
     backgroundOpacity: Number(ui.settingOpacity.value),
     theme: ui.settingTheme.value as ThemeSelection,
     appearancePreference: ui.settingAppearance.value as AppSettings['appearancePreference'],
+    tabHostLabelMode: ui.settingTabHostMode.value as AppSettings['tabHostLabelMode'],
     cursorStyle: ui.settingCursorStyle.value as CursorStyle,
     cursorBlink: ui.settingCursorBlink.checked,
     vibrancy: ui.settingVibrancy.checked,
@@ -1604,6 +1622,7 @@ function closeSettingsPanel(discardPreview: boolean): void {
   if (discardPreview && settingsPreviewBaseline) {
     settings = settingsPreviewBaseline;
     applySettingsToAllTabs();
+    reconcileTabTitles();
     renderTabStrip();
     updateStatus();
   }
@@ -1659,6 +1678,7 @@ function previewSettingsFromForm(): void {
     activeWorkspaceId: patch.activeWorkspaceId ?? settingsPreviewBaseline.activeWorkspaceId
   };
   applySettingsToAllTabs();
+  reconcileTabTitles();
   renderTabStrip();
   syncCommandPaletteActions();
   updateStatus();
@@ -1678,6 +1698,7 @@ async function saveSettingsFromForm(): Promise<void> {
     }
   }
   applySettingsToAllTabs();
+  reconcileTabTitles();
   renderTabStrip();
   syncCommandPaletteActions();
   updateStatus();
