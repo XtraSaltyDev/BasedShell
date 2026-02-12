@@ -5,6 +5,7 @@ import type {
   MenuAction,
   SessionDataEvent,
   SessionExitEvent,
+  SessionContextEvent,
   SessionResizeRequest,
   SessionSummary,
   SystemAppearanceEvent,
@@ -15,6 +16,7 @@ import type {
 
 interface TerminalAPI {
   getVersion: () => Promise<string>;
+  getHomeDirectory: () => Promise<string>;
   getSystemAppearance: () => Promise<AppearanceMode>;
   getGitStatus: (cwd: string) => Promise<GitStatus | null>;
   getSettings: () => Promise<AppSettings>;
@@ -25,6 +27,7 @@ interface TerminalAPI {
   closeSession: (sessionId: string) => void;
   onSessionData: (callback: (event: SessionDataEvent) => void) => () => void;
   onSessionExit: (callback: (event: SessionExitEvent) => void) => () => void;
+  onSessionContext: (callback: (event: SessionContextEvent) => void) => () => void;
   onMenuAction: (callback: (action: MenuAction) => void) => () => void;
   onSystemAppearanceChanged: (callback: (event: SystemAppearanceEvent) => void) => () => void;
 }

@@ -151,6 +151,7 @@ function createMainWindow(settings: AppSettings): BrowserWindow {
 
 function registerIpcHandlers(): void {
   ipcMain.handle('app:get-version', () => app.getVersion());
+  ipcMain.handle('app:get-home-directory', () => app.getPath('home'));
   ipcMain.handle('system:get-appearance', () => getSystemAppearance());
   ipcMain.handle('git:status', (_, cwd: string) => resolveGitStatus(cwd));
 

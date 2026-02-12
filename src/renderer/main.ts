@@ -9,6 +9,7 @@ import type {
   CursorStyle,
   GitStatus,
   MenuAction,
+  SessionContextEvent,
   SessionSummary,
   SettingsPatch,
   ThemeSelection
@@ -30,9 +31,12 @@ interface TabState {
   search: SearchAddon;
   container: HTMLDivElement;
   cwd: string;
+  sshHost: string | null;
+  sshHostHint: string | null;
   startedAt: number;
   lastExitCode: number | null;
   lastExitDurationMs: number | null;
+  titleTooltip: string;
   exited: boolean;
   hasUnreadOutput: boolean;
   hasRecentOutput: boolean;
@@ -95,9 +99,9 @@ let resolvedTheme: ResolvedThemeState;
 const tabs = new Map<string, TabState>();
 let tabOrder: string[] = [];
 let activeTabId = '';
-let tabCount = 0;
 const tabRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let settingsPreviewBaseline: AppSettings | null = null;
+let homeDirectory = '';
 const gitStatusByCwd = new Map<string, GitStatusSnapshot>();
 const pendingGitRequests = new Set<string>();
 let gitPollTimer: ReturnType<typeof setInterval> | undefined;
@@ -155,11 +159,6 @@ const toasts = createToastManager(ui.toastContainer, ui.toastAnnouncer);
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function nextTabLabel(): string {
-  tabCount += 1;
-  return `Tab ${tabCount}`;
 }
 
 function setSurfaceOpacity(opacity: number): void {
@@ -250,6 +249,160 @@ function updateTabWidthClass(): void {
   ui.tabStrip.classList.add('tab-size-regular');
 }
 
+function normalizePath(pathValue: string): string {
+  const replaced = pathValue.replace(/\\/g, '/').trim();
+  return replaced.length > 0 ? replaced : '/';
+}
+
+function toTildePath(pathValue: string): string {
+  const normalized = normalizePath(pathValue);
+  if (!homeDirectory) {
+    return normalized;
+  }
+
+  const home = normalizePath(homeDirectory).replace(/\/+$/, '');
+  if (normalized === home) {
+    return '~';
+  }
+
+  if (normalized.startsWith(`${home}/`)) {
+    return `~${normalized.slice(home.length)}`;
+  }
+
+  return normalized;
+}
+
+function pathSegments(pathValue: string): string[] {
+  if (pathValue === '~') {
+    return ['~'];
+  }
+
+  const trimmed = pathValue.replace(/\/+$/, '');
+  if (trimmed === '/') {
+    return ['/'];
+  }
+
+  return trimmed.split('/').filter((segment) => segment.length > 0);
+}
+
+function pathTail(segments: string[], depth: number): string {
+  if (segments.length === 0) {
+    return '/';
+  }
+
+  if ((segments[0] === '~' || segments[0] === '/') && segments.length === 1) {
+    return segments[0];
+  }
+
+  const count = Math.max(1, Math.min(depth, segments.length));
+  return segments.slice(segments.length - count).join('/');
+}
+
+function hostFromTitleHint(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const match = trimmed.match(/^[^@\s]+@([^:\s]+):/);
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return match[1];
+}
+
+function reconcileTabTitles(): boolean {
+  const orderedTabs = tabOrder
+    .map((tabId) => tabs.get(tabId))
+    .filter((tab): tab is TabState => Boolean(tab));
+  if (orderedTabs.length === 0) {
+    return false;
+  }
+
+  type TitleMeta = {
+    tab: TabState;
+    displayPath: string;
+    segments: string[];
+    host: string | null;
+    depth: number;
+    label: string;
+    tooltip: string;
+  };
+
+  const metas: TitleMeta[] = orderedTabs.map((tab) => {
+    const displayPath = toTildePath(tab.cwd || '/');
+    const segments = pathSegments(displayPath);
+    const host = tab.sshHost ?? tab.sshHostHint;
+    const label = pathTail(segments, 1);
+    const tooltip = host ? `${host}:${normalizePath(tab.cwd || '/')}` : normalizePath(tab.cwd || '/');
+    return {
+      tab,
+      displayPath,
+      segments,
+      host,
+      depth: 1,
+      label,
+      tooltip
+    };
+  });
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const groups = new Map<string, TitleMeta[]>();
+    for (const meta of metas) {
+      const key = `${meta.host ?? ''}|${meta.label}`;
+      const bucket = groups.get(key);
+      if (bucket) {
+        bucket.push(meta);
+      } else {
+        groups.set(key, [meta]);
+      }
+    }
+
+    for (const group of groups.values()) {
+      if (group.length < 2) {
+        continue;
+      }
+
+      let groupChanged = false;
+      for (const meta of group) {
+        if (meta.depth >= meta.segments.length) {
+          continue;
+        }
+
+        meta.depth += 1;
+        meta.label = pathTail(meta.segments, meta.depth);
+        changed = true;
+        groupChanged = true;
+      }
+
+      if (!groupChanged) {
+        for (let index = 0; index < group.length; index += 1) {
+          const meta = group[index];
+          if (!meta) {
+            continue;
+          }
+          meta.label = `${meta.label} #${index + 1}`;
+        }
+      }
+    }
+  }
+
+  let anyUpdated = false;
+  for (const meta of metas) {
+    const nextTitle = meta.host ? `${meta.host}:${meta.label}` : meta.label;
+    if (meta.tab.title !== nextTitle || meta.tab.titleTooltip !== meta.tooltip) {
+      meta.tab.title = nextTitle;
+      meta.tab.titleTooltip = meta.tooltip;
+      anyUpdated = true;
+    }
+  }
+
+  return anyUpdated;
+}
+
 function createTabElement(tabId: string): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
@@ -287,6 +440,7 @@ function updateTabElement(element: HTMLButtonElement, tab: TabState, isActive: b
   element.classList.toggle('exit', tab.exited);
   element.setAttribute('aria-selected', String(isActive));
   element.setAttribute('aria-controls', `panel-${tab.id}`);
+  element.title = tab.titleTooltip;
 
   const title = element.querySelector<HTMLSpanElement>('.tab-title');
   if (title && title.textContent !== tab.title) {
@@ -298,10 +452,10 @@ function updateTabElement(element: HTMLButtonElement, tab: TabState, isActive: b
     dot.classList.remove('active', 'unread', 'exited');
     if (tab.exited) {
       dot.classList.add('exited');
+    } else if (isActive) {
+      dot.classList.add('active');
     } else if (tab.hasUnreadOutput) {
       dot.classList.add('unread');
-    } else if (tab.hasRecentOutput) {
-      dot.classList.add('active');
     }
   }
 }
@@ -609,10 +763,7 @@ function clearOutputPulse(tab: TabState): void {
     tab.outputPulseTimer = undefined;
   }
 
-  if (tab.hasRecentOutput) {
-    tab.hasRecentOutput = false;
-    renderTabStrip();
-  }
+  tab.hasRecentOutput = false;
 }
 
 function markTabOutput(tab: TabState): void {
@@ -621,26 +772,6 @@ function markTabOutput(tab: TabState): void {
   }
 
   if (tab.id === activeTabId) {
-    const shouldRender = !tab.hasRecentOutput;
-    tab.hasRecentOutput = true;
-    if (tab.outputPulseTimer) {
-      clearTimeout(tab.outputPulseTimer);
-    }
-
-    tab.outputPulseTimer = setTimeout(() => {
-      tab.outputPulseTimer = undefined;
-      if (!tab.hasRecentOutput) {
-        return;
-      }
-
-      tab.hasRecentOutput = false;
-      renderTabStrip();
-    }, 1200);
-
-    if (shouldRender) {
-      renderTabStrip();
-    }
-
     return;
   }
 
@@ -682,11 +813,14 @@ async function createTab(): Promise<void> {
     return;
   }
 
-  const title = nextTabLabel();
+  const initialDisplayPath = toTildePath(summary.cwd || '/');
+  const initialSegments = pathSegments(initialDisplayPath);
+  const initialTitle = pathTail(initialSegments, 1);
+  const initialTooltip = normalizePath(summary.cwd || '/');
   const tab: TabState = {
     id: tabId,
     sessionId: summary.sessionId,
-    title,
+    title: initialTitle,
     shell: summary.shell,
     pid: summary.pid,
     term,
@@ -694,9 +828,12 @@ async function createTab(): Promise<void> {
     search,
     container,
     cwd: summary.cwd,
+    sshHost: null,
+    sshHostHint: null,
     startedAt: Date.now(),
     lastExitCode: null,
     lastExitDurationMs: null,
+    titleTooltip: initialTooltip,
     exited: false,
     hasUnreadOutput: false,
     hasRecentOutput: false
@@ -713,12 +850,15 @@ async function createTab(): Promise<void> {
   });
 
   term.onTitleChange((incomingTitle) => {
-    if (incomingTitle.trim().length === 0) {
+    const nextHostHint = hostFromTitleHint(incomingTitle);
+    if (nextHostHint === tab.sshHostHint) {
       return;
     }
 
-    tab.title = incomingTitle.trim();
-    renderTabStrip();
+    tab.sshHostHint = nextHostHint;
+    if (reconcileTabTitles()) {
+      renderTabStrip();
+    }
   });
 
   term.onResize(({ cols, rows }) => {
@@ -729,9 +869,8 @@ async function createTab(): Promise<void> {
     });
   });
 
+  reconcileTabTitles();
   activateTab(tabId);
-  renderTabStrip();
-  updateStatus();
 }
 
 async function closeTab(tabId: string): Promise<void> {
@@ -760,6 +899,7 @@ async function closeTab(tabId: string): Promise<void> {
     }
   }
 
+  reconcileTabTitles();
   renderTabStrip();
   updateStatus();
 }
@@ -1036,6 +1176,26 @@ function bindSessionEvents(): void {
     renderTabStrip();
     updateStatus();
   });
+
+  window.terminalAPI.onSessionContext((event: SessionContextEvent) => {
+    const tab = tabBySessionId(event.sessionId);
+    if (!tab) {
+      return;
+    }
+
+    const nextCwd = normalizePath(event.cwd || tab.cwd);
+    const nextSshHost = event.sshHost?.trim() || null;
+    if (tab.cwd === nextCwd && tab.sshHost === nextSshHost) {
+      return;
+    }
+
+    tab.cwd = nextCwd;
+    tab.sshHost = nextSshHost;
+    if (reconcileTabTitles()) {
+      renderTabStrip();
+    }
+    updateStatus();
+  });
 }
 
 function bindSystemAppearanceEvents(): void {
@@ -1303,6 +1463,7 @@ function bindUI(): void {
 }
 
 async function boot(): Promise<void> {
+  homeDirectory = await window.terminalAPI.getHomeDirectory();
   systemAppearance = await window.terminalAPI.getSystemAppearance();
   settings = await window.terminalAPI.getSettings();
   applySettingsToAllTabs();

@@ -144,6 +144,12 @@ export interface SessionExitEvent {
   signal?: number;
 }
 
+export interface SessionContextEvent {
+  sessionId: string;
+  cwd: string;
+  sshHost: string | null;
+}
+
 export interface GitStatus {
   branch: string;
   dirty: boolean;

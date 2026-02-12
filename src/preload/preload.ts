@@ -6,6 +6,7 @@ import type {
   MenuAction,
   SessionDataEvent,
   SessionExitEvent,
+  SessionContextEvent,
   SessionSummary,
   GitStatus,
   SessionResizeRequest,
@@ -28,6 +29,7 @@ function subscribe<T>(channel: string, callback: (event: T) => void): () => void
 
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
+  getHomeDirectory: (): Promise<string> => ipcRenderer.invoke('app:get-home-directory'),
   getSystemAppearance: (): Promise<AppearanceMode> => ipcRenderer.invoke('system:get-appearance'),
   getGitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke('git:status', cwd),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
@@ -39,6 +41,8 @@ const api = {
   closeSession: (sessionId: string): void => ipcRenderer.send('terminal:close-session', sessionId),
   onSessionData: (callback: (event: SessionDataEvent) => void): (() => void) => subscribe('terminal:data', callback),
   onSessionExit: (callback: (event: SessionExitEvent) => void): (() => void) => subscribe('terminal:exit', callback),
+  onSessionContext: (callback: (event: SessionContextEvent) => void): (() => void) =>
+    subscribe('terminal:context', callback),
   onMenuAction: (callback: (action: MenuAction) => void): (() => void) => subscribe('menu:action', callback),
   onSystemAppearanceChanged: (callback: (event: SystemAppearanceEvent) => void): (() => void) =>
     subscribe('system:appearance-changed', callback)
