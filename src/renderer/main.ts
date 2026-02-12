@@ -16,6 +16,11 @@ import type {
 } from '../shared/types';
 import { applyThemeChrome, resolveThemeState, type ResolvedThemeState } from './themes';
 import { icon } from './icons';
+import {
+  createCommandPalette,
+  type CommandPaletteAction,
+  type CommandPaletteController
+} from './command-palette';
 import { createToastManager } from './toast';
 import './tokens.css';
 import './styles.css';
@@ -68,6 +73,10 @@ const dom = {
   statusTheme: document.querySelector<HTMLButtonElement>('#status-theme'),
   toastContainer: document.querySelector<HTMLDivElement>('#toast-container'),
   toastAnnouncer: document.querySelector<HTMLDivElement>('#toast-announcer'),
+  paletteScrim: document.querySelector<HTMLDivElement>('#palette-scrim'),
+  commandPalette: document.querySelector<HTMLElement>('#command-palette'),
+  paletteInput: document.querySelector<HTMLInputElement>('#palette-input'),
+  paletteResults: document.querySelector<HTMLElement>('#palette-results'),
   searchPanel: document.querySelector<HTMLDivElement>('#search-panel'),
   searchInput: document.querySelector<HTMLInputElement>('#search-input'),
   searchCase: document.querySelector<HTMLInputElement>('#search-case-sensitive'),
@@ -130,6 +139,10 @@ const ui = {
   statusTheme: assertDom(dom.statusTheme, '#status-theme'),
   toastContainer: assertDom(dom.toastContainer, '#toast-container'),
   toastAnnouncer: assertDom(dom.toastAnnouncer, '#toast-announcer'),
+  paletteScrim: assertDom(dom.paletteScrim, '#palette-scrim'),
+  commandPalette: assertDom(dom.commandPalette, '#command-palette'),
+  paletteInput: assertDom(dom.paletteInput, '#palette-input'),
+  paletteResults: assertDom(dom.paletteResults, '#palette-results'),
   searchPanel: assertDom(dom.searchPanel, '#search-panel'),
   searchInput: assertDom(dom.searchInput, '#search-input'),
   searchCase: assertDom(dom.searchCase, '#search-case-sensitive'),
@@ -156,6 +169,7 @@ const ui = {
 };
 
 const toasts = createToastManager(ui.toastContainer, ui.toastAnnouncer);
+let commandPalette: CommandPaletteController | null = null;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -312,6 +326,32 @@ function hostFromTitleHint(value: string): string | null {
   return match[1];
 }
 
+function fallbackTabLabel(cwd: string): string {
+  const displayPath = toTildePath(cwd || '/');
+  const segments = pathSegments(displayPath);
+  return pathTail(segments, 1);
+}
+
+function resolveTabTitle(tab: TabState): { title: string; tooltip: string } {
+  const cwd = normalizePath(tab.cwd || '/');
+  const host = tab.sshHost ?? tab.sshHostHint;
+  const git = gitStatusByCwd.get(tab.cwd);
+
+  if (git) {
+    const repoBranch = `${git.repo} / ${git.branch}`;
+    return {
+      title: host ? `${host}:${repoBranch}` : repoBranch,
+      tooltip: `${git.root} (${git.branch}${git.dirty ? ', dirty' : ', clean'})`
+    };
+  }
+
+  const fallback = fallbackTabLabel(cwd);
+  return {
+    title: host ? `${host}:${fallback}` : fallback,
+    tooltip: host ? `${host}:${cwd}` : cwd
+  };
+}
+
 function reconcileTabTitles(): boolean {
   const orderedTabs = tabOrder
     .map((tabId) => tabs.get(tabId))
@@ -320,82 +360,12 @@ function reconcileTabTitles(): boolean {
     return false;
   }
 
-  type TitleMeta = {
-    tab: TabState;
-    displayPath: string;
-    segments: string[];
-    host: string | null;
-    depth: number;
-    label: string;
-    tooltip: string;
-  };
-
-  const metas: TitleMeta[] = orderedTabs.map((tab) => {
-    const displayPath = toTildePath(tab.cwd || '/');
-    const segments = pathSegments(displayPath);
-    const host = tab.sshHost ?? tab.sshHostHint;
-    const label = pathTail(segments, 1);
-    const tooltip = host ? `${host}:${normalizePath(tab.cwd || '/')}` : normalizePath(tab.cwd || '/');
-    return {
-      tab,
-      displayPath,
-      segments,
-      host,
-      depth: 1,
-      label,
-      tooltip
-    };
-  });
-
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const groups = new Map<string, TitleMeta[]>();
-    for (const meta of metas) {
-      const key = `${meta.host ?? ''}|${meta.label}`;
-      const bucket = groups.get(key);
-      if (bucket) {
-        bucket.push(meta);
-      } else {
-        groups.set(key, [meta]);
-      }
-    }
-
-    for (const group of groups.values()) {
-      if (group.length < 2) {
-        continue;
-      }
-
-      let groupChanged = false;
-      for (const meta of group) {
-        if (meta.depth >= meta.segments.length) {
-          continue;
-        }
-
-        meta.depth += 1;
-        meta.label = pathTail(meta.segments, meta.depth);
-        changed = true;
-        groupChanged = true;
-      }
-
-      if (!groupChanged) {
-        for (let index = 0; index < group.length; index += 1) {
-          const meta = group[index];
-          if (!meta) {
-            continue;
-          }
-          meta.label = `${meta.label} #${index + 1}`;
-        }
-      }
-    }
-  }
-
   let anyUpdated = false;
-  for (const meta of metas) {
-    const nextTitle = meta.host ? `${meta.host}:${meta.label}` : meta.label;
-    if (meta.tab.title !== nextTitle || meta.tab.titleTooltip !== meta.tooltip) {
-      meta.tab.title = nextTitle;
-      meta.tab.titleTooltip = meta.tooltip;
+  for (const tab of orderedTabs) {
+    const next = resolveTabTitle(tab);
+    if (tab.title !== next.title || tab.titleTooltip !== next.tooltip) {
+      tab.title = next.title;
+      tab.titleTooltip = next.tooltip;
       anyUpdated = true;
     }
   }
@@ -598,14 +568,27 @@ async function refreshActiveGitStatus(force = false): Promise<void> {
 
   pendingGitRequests.add(cwd);
   try {
+    let changed = false;
     const next = await window.terminalAPI.getGitStatus(cwd);
     if (next) {
+      const previous = gitStatusByCwd.get(cwd);
       gitStatusByCwd.set(cwd, {
         ...next,
         fetchedAt: Date.now()
       });
+      changed =
+        !previous ||
+        previous.repo !== next.repo ||
+        previous.root !== next.root ||
+        previous.branch !== next.branch ||
+        previous.dirty !== next.dirty;
     } else {
-      gitStatusByCwd.delete(cwd);
+      changed = gitStatusByCwd.delete(cwd);
+    }
+
+    if (changed && reconcileTabTitles()) {
+      renderTabStrip();
+      syncCommandPaletteActions();
     }
   } catch {
     toasts.show('Unable to refresh Git status.', 'error', 0);
@@ -813,10 +796,9 @@ async function createTab(): Promise<void> {
     return;
   }
 
-  const initialDisplayPath = toTildePath(summary.cwd || '/');
-  const initialSegments = pathSegments(initialDisplayPath);
-  const initialTitle = pathTail(initialSegments, 1);
-  const initialTooltip = normalizePath(summary.cwd || '/');
+  const initialCwd = normalizePath(summary.cwd || '/');
+  const initialTitle = fallbackTabLabel(initialCwd);
+  const initialTooltip = initialCwd;
   const tab: TabState = {
     id: tabId,
     sessionId: summary.sessionId,
@@ -827,7 +809,7 @@ async function createTab(): Promise<void> {
     fit,
     search,
     container,
-    cwd: summary.cwd,
+    cwd: initialCwd,
     sshHost: null,
     sshHostHint: null,
     startedAt: Date.now(),
@@ -858,6 +840,7 @@ async function createTab(): Promise<void> {
     tab.sshHostHint = nextHostHint;
     if (reconcileTabTitles()) {
       renderTabStrip();
+      syncCommandPaletteActions();
     }
   });
 
@@ -870,6 +853,7 @@ async function createTab(): Promise<void> {
   });
 
   reconcileTabTitles();
+  syncCommandPaletteActions();
   activateTab(tabId);
 }
 
@@ -901,6 +885,7 @@ async function closeTab(tabId: string): Promise<void> {
 
   reconcileTabTitles();
   renderTabStrip();
+  syncCommandPaletteActions();
   updateStatus();
 }
 
@@ -1107,6 +1092,154 @@ function clearActiveTerminal(): void {
   tab?.term.clear();
 }
 
+function copyActiveCwdToClipboard(): void {
+  const active = activeTab();
+  if (!active) {
+    return;
+  }
+
+  void navigator.clipboard
+    .writeText(active.cwd)
+    .then(() => {
+      toasts.show('Copied working directory path.', 'success');
+    })
+    .catch(() => {
+      toasts.show('Unable to copy path to clipboard.', 'error', 0);
+    });
+}
+
+function commandPaletteActions(): CommandPaletteAction[] {
+  const actions: CommandPaletteAction[] = [
+    {
+      id: 'new-tab',
+      title: 'New Tab',
+      description: 'Create a new terminal tab',
+      shortcut: 'Cmd/Ctrl+T',
+      keywords: ['tab', 'create', 'terminal'],
+      run: () => void createTab()
+    },
+    {
+      id: 'close-tab',
+      title: 'Close Active Tab',
+      description: 'Close the current terminal tab',
+      shortcut: 'Cmd/Ctrl+W',
+      keywords: ['tab', 'close'],
+      run: () => {
+        if (activeTabId) {
+          void closeTab(activeTabId);
+        }
+      }
+    },
+    {
+      id: 'next-tab',
+      title: 'Next Tab',
+      description: 'Move to the next tab',
+      keywords: ['tab', 'next'],
+      run: nextTab
+    },
+    {
+      id: 'previous-tab',
+      title: 'Previous Tab',
+      description: 'Move to the previous tab',
+      keywords: ['tab', 'previous'],
+      run: previousTab
+    },
+    {
+      id: 'search',
+      title: 'Find in Terminal',
+      description: 'Open terminal search',
+      shortcut: 'Cmd/Ctrl+F',
+      keywords: ['search', 'find', 'output'],
+      run: openSearch
+    },
+    {
+      id: 'settings',
+      title: 'Open Settings',
+      description: 'Open the settings drawer',
+      shortcut: 'Cmd/Ctrl+,',
+      keywords: ['settings', 'preferences', 'config'],
+      run: openSettings
+    },
+    {
+      id: 'clear-terminal',
+      title: 'Clear Terminal',
+      description: 'Clear the active terminal viewport',
+      shortcut: 'Cmd/Ctrl+K',
+      keywords: ['clear', 'terminal'],
+      run: clearActiveTerminal
+    },
+    {
+      id: 'theme-cycle',
+      title: 'Cycle Theme',
+      description: 'Switch to the next available theme',
+      keywords: ['theme', 'appearance', 'style'],
+      run: () => void cycleTheme()
+    },
+    {
+      id: 'git-refresh',
+      title: 'Refresh Git Status',
+      description: 'Refresh branch and dirty state for active tab',
+      keywords: ['git', 'branch', 'dirty'],
+      run: () => void refreshActiveGitStatus(true)
+    },
+    {
+      id: 'copy-cwd',
+      title: 'Copy Working Directory',
+      description: 'Copy current tab path to clipboard',
+      keywords: ['copy', 'path', 'cwd'],
+      run: copyActiveCwdToClipboard
+    }
+  ];
+
+  for (let index = 0; index < tabOrder.length; index += 1) {
+    const tabId = tabOrder[index];
+    if (!tabId) {
+      continue;
+    }
+
+    const tab = tabs.get(tabId);
+    if (!tab) {
+      continue;
+    }
+
+    const shortcut = index <= 8 ? `Cmd/Ctrl+${index + 1}` : undefined;
+    actions.push({
+      id: `switch-tab:${tabId}`,
+      title: `Switch to ${tab.title}`,
+      description: tab.cwd,
+      shortcut,
+      keywords: ['tab', 'switch', 'focus'],
+      run: () => {
+        activateTab(tabId);
+      }
+    });
+  }
+
+  return actions;
+}
+
+function syncCommandPaletteActions(): void {
+  commandPalette?.setActions(commandPaletteActions());
+}
+
+function openCommandPalette(): void {
+  syncCommandPaletteActions();
+  commandPalette?.open();
+}
+
+function initializeCommandPalette(): void {
+  commandPalette = createCommandPalette({
+    root: ui.commandPalette,
+    scrim: ui.paletteScrim,
+    input: ui.paletteInput,
+    results: ui.paletteResults,
+    onActionError: (action, error) => {
+      toasts.show(`Command failed: ${action.title} (${String(error)})`, 'error', 0);
+    }
+  });
+  syncCommandPaletteActions();
+}
+
 function bindMenuActions(): void {
   window.terminalAPI.onMenuAction((action: MenuAction) => {
     switch (action) {
@@ -1132,6 +1265,9 @@ function bindMenuActions(): void {
         break;
       case 'clear-terminal':
         clearActiveTerminal();
+        break;
+      case 'command-palette':
+        openCommandPalette();
         break;
       default:
         break;
@@ -1193,8 +1329,12 @@ function bindSessionEvents(): void {
     tab.sshHost = nextSshHost;
     if (reconcileTabTitles()) {
       renderTabStrip();
+      syncCommandPaletteActions();
     }
     updateStatus();
+    if (tab.id === activeTabId) {
+      void refreshActiveGitStatus(true);
+    }
   });
 }
 
@@ -1215,7 +1355,21 @@ function applyStaticIcons(): void {
 
 function bindKeyboardShortcuts(): void {
   window.addEventListener('keydown', (event) => {
+    if (commandPalette?.handleGlobalKeydown(event)) {
+      return;
+    }
+
+    if (commandPalette?.isOpen()) {
+      return;
+    }
+
     const isMod = event.metaKey || event.ctrlKey;
+
+    if (isMod && event.shiftKey && event.key.toLowerCase() === 'p') {
+      event.preventDefault();
+      openCommandPalette();
+      return;
+    }
 
     if (isMod && event.key === 't') {
       event.preventDefault();
@@ -1328,19 +1482,7 @@ function bindUI(): void {
   });
 
   ui.statusCwd.addEventListener('click', () => {
-    const active = activeTab();
-    if (!active) {
-      return;
-    }
-
-    void navigator.clipboard
-      .writeText(active.cwd)
-      .then(() => {
-        toasts.show('Copied working directory path.', 'success');
-      })
-      .catch(() => {
-        toasts.show('Unable to copy path to clipboard.', 'error', 0);
-      });
+    copyActiveCwdToClipboard();
   });
 
   ui.statusGit.addEventListener('click', () => {
@@ -1468,6 +1610,7 @@ async function boot(): Promise<void> {
   settings = await window.terminalAPI.getSettings();
   applySettingsToAllTabs();
   applyStaticIcons();
+  initializeCommandPalette();
   bindUI();
   bindKeyboardShortcuts();
   bindMenuActions();

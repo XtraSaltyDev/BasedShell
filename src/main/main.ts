@@ -68,6 +68,20 @@ async function resolveGitStatus(cwd: string): Promise<GitStatus | null> {
   }
 
   try {
+    const repoRoot = await execFileAsync('git', ['-C', trimmed, 'rev-parse', '--show-toplevel'], {
+      timeout: 1500,
+      maxBuffer: 128 * 1024
+    });
+    const root = repoRoot.stdout.trim();
+    if (!root) {
+      return null;
+    }
+
+    const repo = path.basename(root);
+    if (!repo) {
+      return null;
+    }
+
     const branch = await execFileAsync('git', ['-C', trimmed, 'rev-parse', '--abbrev-ref', 'HEAD'], {
       timeout: 1500,
       maxBuffer: 128 * 1024
@@ -83,6 +97,8 @@ async function resolveGitStatus(cwd: string): Promise<GitStatus | null> {
     });
 
     return {
+      repo,
+      root,
       branch: branchName,
       dirty: dirty.stdout.trim().length > 0
     };

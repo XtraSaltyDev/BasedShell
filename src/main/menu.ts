@@ -93,6 +93,12 @@ export function createAppMenu(): Menu {
     label: 'View',
     submenu: [
       {
+        label: 'Command Palette',
+        accelerator: 'CmdOrCtrl+Shift+P',
+        click: () => dispatch('command-palette')
+      },
+      separator,
+      {
         label: 'Next Tab',
         accelerator: 'Ctrl+Tab',
         click: () => dispatch('next-tab')

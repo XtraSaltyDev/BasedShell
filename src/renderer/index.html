@@ -50,6 +50,15 @@
     <div id="toast-container" class="toast-container" aria-live="polite" aria-label="Notifications"></div>
     <div id="toast-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
+    <div id="palette-scrim" class="palette-scrim hidden" aria-hidden="true"></div>
+    <section id="command-palette" class="command-palette hidden" role="dialog" aria-modal="true" aria-label="Command palette">
+      <header class="palette-header">
+        <input id="palette-input" type="text" placeholder="Type a command..." role="searchbox" aria-controls="palette-results" />
+      </header>
+      <ul id="palette-results" class="palette-results" role="listbox" aria-label="Command results"></ul>
+      <footer class="palette-footer">Enter to run · ↑↓ to navigate · Cmd/Ctrl+Shift+P to close</footer>
+    </section>
+
     <div id="search-panel" class="overlay hidden" role="dialog" aria-modal="false" aria-label="Search terminal output">
       <input id="search-input" type="text" placeholder="Find in terminal" />
       <label class="checkbox-wrap">
