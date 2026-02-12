@@ -1,66 +1,124 @@
-# BasedShell
+# BasedShell ⚡🖥️
 
-BasedShell is a production-grade macOS terminal app built with Electron, `node-pty`, and `xterm.js`.
+![Platform](https://img.shields.io/badge/Platform-macOS-black?logo=apple)
+![Stack](https://img.shields.io/badge/Stack-Electron%20%2B%20xterm.js-1f2937)
+![Build](https://img.shields.io/badge/Build-passing-16a34a)
+![License](https://img.shields.io/badge/License-MIT-2563eb)
 
-## Current Features
+A modern, production-grade macOS terminal focused on speed, clarity, and keyboard-first workflows.
 
-- Native PTY shell sessions using your login shell
-- Multi-tab terminal workflow with keyboard-first controls
-- Reconciled tab strip with smooth enter/exit transitions
-- Tab activity states:
-  - Active output pulse
-  - Unread output indicator on background tabs
-  - Exited tab state indicator
-- Overflow-aware tab strip with dynamic tab width compression
-- Persistent settings (font, cursor, scrollback, opacity, theme, vibrancy)
-- Full UI + terminal theme architecture with built-in themes:
-  - `graphite`, `midnight`, `solarized-dark`, `paper`, `aurora`, `noir`, `fog`
-  - `system` theme selection support
-- System appearance integration (`dark`/`light` updates)
-- Optional macOS vibrancy mode
-- Search in terminal output
-- Native app menu and standard terminal shortcuts
-- SVG icon system for terminal chrome controls
-- Packaged macOS builds (`dmg`/`zip`) via `electron-builder`
+BasedShell is built with Electron, `node-pty`, and `xterm.js`, and now includes workspace-aware productivity features inspired by leading custom terminal apps.
 
-## Quick Start
+## ✨ Highlights
+
+- Real PTY shell sessions using your login shell
+- Multi-tab workflow with smooth enter/exit reconciliation
+- Repo/branch-aware tab titles (with SSH context support)
+- Interactive productivity status bar:
+  - Shell/Process
+  - Working Directory
+  - Git branch + dirty state
+  - Active Workspace
+  - Last exit code + duration
+  - Tab count and Theme
+- Command Palette (`Cmd/Ctrl+Shift+P`) with:
+  - Fuzzy search
+  - Keyboard navigation
+  - Recent actions
+  - Pin favorites
+- Search redesign (inline topbar search):
+  - Match counter (`current/total`)
+  - Case-sensitive + regex toggles
+  - Next/prev navigation
+  - Keyboard navigation shortcuts
+- Workspaces + Profile Cards:
+  - Named workspace presets
+  - Startup tab definitions
+  - Save current tabs into workspace startup config
+  - Per-card shell profile + visual overrides
+- Theme architecture with built-in themes:
+  - `graphite`, `midnight`, `solarized-dark`, `paper`, `aurora`, `noir`, `fog`, and `system`
+- System appearance sync (`light`/`dark`) + optional macOS vibrancy
+- Toast notifications + native menu integration
+
+## 🚀 Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Production run:
+Run production build locally:
 
 ```bash
 npm run start
 ```
 
-Build distributables:
+Package macOS distributables (`dmg` + `zip`):
 
 ```bash
 npm run package:mac
 ```
 
-## Key Shortcuts
+## ⌨️ Keyboard Shortcuts
 
-- `Cmd/Ctrl+T`: new tab
-- `Cmd/Ctrl+W`: close active tab
-- `Cmd/Ctrl+F`: find in terminal
-- `Cmd/Ctrl+,`: open settings
-- `Cmd/Ctrl+K`: clear terminal
-- `Cmd/Ctrl+1..9`: jump to tab
-- `Cmd/Ctrl+/-/0`: terminal font zoom in/out/reset
+| Action | Shortcut |
+|---|---|
+| New tab | `Cmd/Ctrl+T` |
+| Close tab | `Cmd/Ctrl+W` |
+| Open search | `Cmd/Ctrl+F` |
+| Next search match | `Cmd/Ctrl+G` / `F3` / `Enter` (in search input) |
+| Previous search match | `Cmd/Ctrl+Shift+G` / `Shift+F3` / `Shift+Enter` |
+| Open settings | `Cmd/Ctrl+,` |
+| Open command palette | `Cmd/Ctrl+Shift+P` |
+| Clear terminal | `Cmd/Ctrl+K` |
+| Jump to tab 1-9 | `Cmd/Ctrl+1..9` |
+| Font zoom in/out/reset | `Cmd/Ctrl+Plus`, `Cmd/Ctrl+-`, `Cmd/Ctrl+0` |
 
-## Project Structure
+## 🧠 Workspace + Profile Card Model
 
-- `src/main`: Electron main process, IPC, window lifecycle, PTY orchestration
-- `src/preload`: secure renderer bridge API
-- `src/renderer`: UI, tab lifecycle, terminal interactions, themes, icons
-- `src/shared`: cross-process type and theme metadata contracts
+- A **Workspace** defines named startup tabs and default card behavior.
+- A **Profile Card** maps to a shell profile and optional visual overrides (theme/font/cursor/padding).
+- You can:
+  - switch workspaces from status bar + command palette
+  - capture current tabs into workspace startup tabs
+  - create/edit/delete workspaces and cards from Settings
 
-## Notes
+## 🎨 UI + Theme System
+
+- Shared, typed theme contracts across main/renderer
+- ANSI terminal theme + chrome token system
+- Dynamic CSS variable application
+- Vibrancy-aware surface styling for macOS
+
+## 🏗️ Project Structure
+
+- `src/main` - Electron main process, IPC, menu, PTY orchestration, settings persistence
+- `src/preload` - secure renderer bridge (`window.terminalAPI`)
+- `src/renderer` - tabs, command palette, search, settings UI, workspaces, profile cards
+- `src/shared` - cross-process types + theme metadata
+
+## 📦 Runtime Notes
 
 - `node-pty` requires native tooling during install.
 - `postinstall` runs `scripts/fix-node-pty-helper.mjs` to ensure `spawn-helper` is executable on macOS.
-- Runtime settings and window state are stored under Electron user data (typically `~/Library/Application Support/BasedShell` on macOS).
+- Settings and window state persist under Electron user data.
+  - Typical macOS path: `~/Library/Application Support/BasedShell`
+
+## 🛠️ Troubleshooting
+
+- If `nvm` complains about `npm_config_prefix`, run:
+
+```bash
+unset npm_config_prefix
+```
+
+- If `rg` (ripgrep) is missing:
+
+```bash
+brew install ripgrep
+```
+
+## 📄 License
+
+MIT
