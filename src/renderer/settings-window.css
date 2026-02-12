@@ -42,6 +42,8 @@ body {
   padding-left: calc(var(--space-5) + var(--settings-titlebar-left-pad));
   border-bottom: var(--size-border-default) solid var(--color-border-subtle);
   background: color-mix(in srgb, var(--color-bg-surface) 92%, transparent);
+  -webkit-app-region: drag;
+  user-select: none;
 }
 
 .settings-window-header h1 {
@@ -61,6 +63,7 @@ body {
 .header-actions {
   display: flex;
   gap: var(--space-2);
+  -webkit-app-region: no-drag;
 }
 
 .header-actions button {

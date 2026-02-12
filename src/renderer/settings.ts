@@ -138,6 +138,10 @@ function mergePatch(source: AppSettings, patch: SettingsPatch): AppSettings {
     ...source,
     ...patch,
     schemaVersion: source.schemaVersion,
+    ui: {
+      ...source.ui,
+      ...patch.ui
+    },
     profiles: source.profiles,
     defaultProfileId: source.defaultProfileId
   };

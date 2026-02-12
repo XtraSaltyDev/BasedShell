@@ -106,6 +106,11 @@ export interface TerminalProfile {
   env: Record<string, string>;
 }
 
+export interface UiSettings {
+  lastVerticalSplitRatio: number | null;
+  lastHorizontalSplitRatio: number | null;
+}
+
 export interface AppSettings {
   schemaVersion: number;
   fontFamily: string;
@@ -118,6 +123,7 @@ export interface AppSettings {
   theme: ThemeSelection;
   appearancePreference: AppearancePreference;
   vibrancy: boolean;
+  ui: UiSettings;
   profiles: TerminalProfile[];
   defaultProfileId: string;
 }
@@ -199,8 +205,9 @@ export type MenuAction =
   | 'command-palette';
 
 export type SettingsPatch = Partial<
-  Omit<AppSettings, 'schemaVersion' | 'profiles' | 'defaultProfileId'>
+  Omit<AppSettings, 'schemaVersion' | 'profiles' | 'defaultProfileId' | 'ui'>
 > & {
+  ui?: Partial<UiSettings>;
   profiles?: TerminalProfile[];
   defaultProfileId?: string;
 };

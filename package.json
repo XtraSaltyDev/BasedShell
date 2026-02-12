@@ -13,6 +13,7 @@
     "build:renderer": "vite build",
     "check:dom-contract": "node scripts/check-dom-contract.mjs",
     "typecheck": "npm run check:dom-contract && tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "test:unit": "npm run build:main && node --test test/**/*.test.cjs",
     "dev": "npm run build:main && concurrently -k \"npm:watch:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
     "watch:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
     "dev:renderer": "vite",

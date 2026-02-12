@@ -6,7 +6,8 @@ import type {
   CursorStyle,
   SettingsPatch,
   TerminalProfile,
-  ThemeSelection
+  ThemeSelection,
+  UiSettings
 } from '../shared/types';
 import { JsonStore } from './storage';
 
@@ -26,7 +27,7 @@ const THEMES = new Set<ThemeSelection>([
 ]);
 const APPEARANCE_PREFERENCES = new Set<AppearancePreference>(['system', 'dark', 'light']);
 const CURSORS = new Set<CursorStyle>(['block', 'underline', 'bar']);
-const SETTINGS_SCHEMA_VERSION = 2;
+const SETTINGS_SCHEMA_VERSION = 3;
 const LEGACY_THEME_ALIASES: Record<string, ThemeSelection> = {
   catppuccin: 'catppuccin-mocha'
 };
@@ -50,6 +51,21 @@ function normalizeThemeSelection(value: unknown): ThemeSelection | undefined {
   }
 
   return undefined;
+}
+
+function sanitizeSplitRatio(value: unknown): number | null {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return clamp(Number(value), 0.15, 0.85);
+}
+
+function sanitizeUiSettings(candidate: Partial<UiSettings> | undefined): UiSettings {
+  return {
+    lastVerticalSplitRatio: sanitizeSplitRatio(candidate?.lastVerticalSplitRatio),
+    lastHorizontalSplitRatio: sanitizeSplitRatio(candidate?.lastHorizontalSplitRatio)
+  };
 }
 
 function sanitizeProfile(candidate: TerminalProfile, fallbackCwd: string): TerminalProfile {
@@ -99,6 +115,10 @@ export class SettingsService {
       theme: 'graphite',
       appearancePreference: 'system',
       vibrancy: false,
+      ui: {
+        lastVerticalSplitRatio: null,
+        lastHorizontalSplitRatio: null
+      },
       profiles: [
         {
           id: 'default',
@@ -127,6 +147,10 @@ export class SettingsService {
       ...current,
       ...patch,
       schemaVersion: SETTINGS_SCHEMA_VERSION,
+      ui: {
+        ...current.ui,
+        ...patch.ui
+      },
       profiles: patch.profiles ?? current.profiles,
       defaultProfileId: patch.defaultProfileId ?? current.defaultProfileId
     };
@@ -216,6 +240,7 @@ export class SettingsService {
         ? candidate.appearancePreference
         : 'system',
       vibrancy: Boolean(candidate.vibrancy),
+      ui: sanitizeUiSettings(candidate.ui),
       profiles: dedupedProfiles,
       defaultProfileId
     };
