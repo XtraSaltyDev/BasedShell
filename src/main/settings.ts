@@ -22,6 +22,7 @@ const THEMES = new Set<ThemeSelection>([
 ]);
 const APPEARANCE_PREFERENCES = new Set<AppearancePreference>(['system', 'dark', 'light']);
 const CURSORS = new Set<CursorStyle>(['block', 'underline', 'bar']);
+const SETTINGS_SCHEMA_VERSION = 2;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -67,6 +68,7 @@ export class SettingsService {
     const shell = process.env.SHELL || '/bin/zsh';
 
     const defaults: AppSettings = {
+      schemaVersion: SETTINGS_SCHEMA_VERSION,
       fontFamily: `'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace`,
       fontSize: 14,
       lineHeight: 1.35,
@@ -104,6 +106,7 @@ export class SettingsService {
     const merged: AppSettings = {
       ...current,
       ...patch,
+      schemaVersion: SETTINGS_SCHEMA_VERSION,
       profiles: patch.profiles ?? current.profiles,
       defaultProfileId: patch.defaultProfileId ?? current.defaultProfileId
     };
@@ -177,6 +180,7 @@ export class SettingsService {
           : 'default';
 
     return {
+      schemaVersion: SETTINGS_SCHEMA_VERSION,
       fontFamily:
         typeof candidate.fontFamily === 'string' && candidate.fontFamily.trim().length > 0
           ? candidate.fontFamily.trim()

@@ -96,6 +96,7 @@ export interface TerminalProfile {
 }
 
 export interface AppSettings {
+  schemaVersion: number;
   fontFamily: string;
   fontSize: number;
   lineHeight: number;
@@ -183,7 +184,7 @@ export type MenuAction =
   | 'command-palette';
 
 export type SettingsPatch = Partial<
-  Omit<AppSettings, 'profiles' | 'defaultProfileId'>
+  Omit<AppSettings, 'schemaVersion' | 'profiles' | 'defaultProfileId'>
 > & {
   profiles?: TerminalProfile[];
   defaultProfileId?: string;
