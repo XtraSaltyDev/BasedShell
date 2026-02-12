@@ -95,6 +95,34 @@ export interface TerminalProfile {
   env: Record<string, string>;
 }
 
+export interface ProfileCard {
+  id: string;
+  name: string;
+  profileId: string;
+  theme?: ThemeSelection;
+  fontFamily?: string;
+  fontSize?: number;
+  lineHeight?: number;
+  cursorStyle?: CursorStyle;
+  cursorBlink?: boolean;
+  padding?: number;
+}
+
+export interface WorkspaceStartupTab {
+  id: string;
+  profileCardId: string;
+  cwd: string;
+  command: string;
+}
+
+export interface WorkspacePreset {
+  id: string;
+  name: string;
+  layout: 'tabs';
+  defaultProfileCardId: string;
+  startupTabs: WorkspaceStartupTab[];
+}
+
 export interface AppSettings {
   fontFamily: string;
   fontSize: number;
@@ -108,6 +136,10 @@ export interface AppSettings {
   vibrancy: boolean;
   profiles: TerminalProfile[];
   defaultProfileId: string;
+  profileCards: ProfileCard[];
+  defaultProfileCardId: string;
+  workspaces: WorkspacePreset[];
+  activeWorkspaceId: string;
 }
 
 export interface WindowState {
@@ -183,8 +215,15 @@ export type MenuAction =
   | 'command-palette';
 
 export type SettingsPatch = Partial<
-  Omit<AppSettings, 'profiles' | 'defaultProfileId'>
+  Omit<
+    AppSettings,
+    'profiles' | 'defaultProfileId' | 'profileCards' | 'defaultProfileCardId' | 'workspaces' | 'activeWorkspaceId'
+  >
 > & {
   profiles?: TerminalProfile[];
   defaultProfileId?: string;
+  profileCards?: ProfileCard[];
+  defaultProfileCardId?: string;
+  workspaces?: WorkspacePreset[];
+  activeWorkspaceId?: string;
 };

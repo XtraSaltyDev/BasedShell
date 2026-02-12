@@ -9,10 +9,13 @@ import type {
   CursorStyle,
   GitStatus,
   MenuAction,
+  ProfileCard,
   SessionContextEvent,
   SessionSummary,
   SettingsPatch,
-  ThemeSelection
+  ThemeSelection,
+  WorkspacePreset,
+  WorkspaceStartupTab
 } from '../shared/types';
 import { applyThemeChrome, resolveThemeState, type ResolvedThemeState } from './themes';
 import { icon } from './icons';
@@ -47,6 +50,7 @@ interface TabState {
   hasRecentOutput: boolean;
   searchResultIndex: number;
   searchResultCount: number;
+  profileCardId: string;
   outputPulseTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -58,6 +62,12 @@ interface CommandContext {
   exitCode: number;
   durationMs: number;
   at: number;
+}
+
+interface CreateTabOptions {
+  profileCardId?: string;
+  cwd?: string;
+  startupCommand?: string;
 }
 
 const dom = {
@@ -72,6 +82,7 @@ const dom = {
   statusShell: document.querySelector<HTMLButtonElement>('#status-shell'),
   statusCwd: document.querySelector<HTMLButtonElement>('#status-cwd'),
   statusGit: document.querySelector<HTMLButtonElement>('#status-git'),
+  statusWorkspace: document.querySelector<HTMLButtonElement>('#status-workspace'),
   statusContext: document.querySelector<HTMLButtonElement>('#status-context'),
   statusTabs: document.querySelector<HTMLButtonElement>('#status-tabs'),
   statusTheme: document.querySelector<HTMLButtonElement>('#status-theme'),
@@ -104,7 +115,26 @@ const dom = {
   settingAppearance: document.querySelector<HTMLSelectElement>('#setting-appearance'),
   settingCursorStyle: document.querySelector<HTMLSelectElement>('#setting-cursor-style'),
   settingCursorBlink: document.querySelector<HTMLInputElement>('#setting-cursor-blink'),
-  settingVibrancy: document.querySelector<HTMLInputElement>('#setting-vibrancy')
+  settingVibrancy: document.querySelector<HTMLInputElement>('#setting-vibrancy'),
+  settingWorkspace: document.querySelector<HTMLSelectElement>('#setting-workspace'),
+  settingWorkspaceName: document.querySelector<HTMLInputElement>('#setting-workspace-name'),
+  settingWorkspaceDefaultCard: document.querySelector<HTMLSelectElement>('#setting-workspace-default-card'),
+  settingWorkspaceTabs: document.querySelector<HTMLDivElement>('#setting-workspace-tabs'),
+  settingWorkspaceAddTab: document.querySelector<HTMLButtonElement>('#setting-workspace-add-tab'),
+  settingWorkspaceNew: document.querySelector<HTMLButtonElement>('#setting-workspace-new'),
+  settingWorkspaceDelete: document.querySelector<HTMLButtonElement>('#setting-workspace-delete'),
+  settingWorkspaceCapture: document.querySelector<HTMLButtonElement>('#setting-workspace-capture'),
+  settingProfileCard: document.querySelector<HTMLSelectElement>('#setting-profile-card'),
+  settingCardName: document.querySelector<HTMLInputElement>('#setting-card-name'),
+  settingCardProfile: document.querySelector<HTMLSelectElement>('#setting-card-profile'),
+  settingCardTheme: document.querySelector<HTMLSelectElement>('#setting-card-theme'),
+  settingCardFontSize: document.querySelector<HTMLInputElement>('#setting-card-font-size'),
+  settingCardLineHeight: document.querySelector<HTMLInputElement>('#setting-card-line-height'),
+  settingCardCursorStyle: document.querySelector<HTMLSelectElement>('#setting-card-cursor-style'),
+  settingCardCursorBlink: document.querySelector<HTMLSelectElement>('#setting-card-cursor-blink'),
+  settingCardPadding: document.querySelector<HTMLInputElement>('#setting-card-padding'),
+  settingCardNew: document.querySelector<HTMLButtonElement>('#setting-card-new'),
+  settingCardDelete: document.querySelector<HTMLButtonElement>('#setting-card-delete')
 };
 
 let settings: AppSettings;
@@ -120,6 +150,8 @@ const gitStatusByCwd = new Map<string, GitStatusSnapshot>();
 const pendingGitRequests = new Set<string>();
 let gitPollTimer: ReturnType<typeof setInterval> | undefined;
 let lastCommandContext: CommandContext | null = null;
+let editingWorkspaceId = '';
+let editingProfileCardId = '';
 
 function assertDom<T>(value: T | null, id: string): T {
   if (!value) {
@@ -141,6 +173,7 @@ const ui = {
   statusShell: assertDom(dom.statusShell, '#status-shell'),
   statusCwd: assertDom(dom.statusCwd, '#status-cwd'),
   statusGit: assertDom(dom.statusGit, '#status-git'),
+  statusWorkspace: assertDom(dom.statusWorkspace, '#status-workspace'),
   statusContext: assertDom(dom.statusContext, '#status-context'),
   statusTabs: assertDom(dom.statusTabs, '#status-tabs'),
   statusTheme: assertDom(dom.statusTheme, '#status-theme'),
@@ -173,7 +206,26 @@ const ui = {
   settingAppearance: assertDom(dom.settingAppearance, '#setting-appearance'),
   settingCursorStyle: assertDom(dom.settingCursorStyle, '#setting-cursor-style'),
   settingCursorBlink: assertDom(dom.settingCursorBlink, '#setting-cursor-blink'),
-  settingVibrancy: assertDom(dom.settingVibrancy, '#setting-vibrancy')
+  settingVibrancy: assertDom(dom.settingVibrancy, '#setting-vibrancy'),
+  settingWorkspace: assertDom(dom.settingWorkspace, '#setting-workspace'),
+  settingWorkspaceName: assertDom(dom.settingWorkspaceName, '#setting-workspace-name'),
+  settingWorkspaceDefaultCard: assertDom(dom.settingWorkspaceDefaultCard, '#setting-workspace-default-card'),
+  settingWorkspaceTabs: assertDom(dom.settingWorkspaceTabs, '#setting-workspace-tabs'),
+  settingWorkspaceAddTab: assertDom(dom.settingWorkspaceAddTab, '#setting-workspace-add-tab'),
+  settingWorkspaceNew: assertDom(dom.settingWorkspaceNew, '#setting-workspace-new'),
+  settingWorkspaceDelete: assertDom(dom.settingWorkspaceDelete, '#setting-workspace-delete'),
+  settingWorkspaceCapture: assertDom(dom.settingWorkspaceCapture, '#setting-workspace-capture'),
+  settingProfileCard: assertDom(dom.settingProfileCard, '#setting-profile-card'),
+  settingCardName: assertDom(dom.settingCardName, '#setting-card-name'),
+  settingCardProfile: assertDom(dom.settingCardProfile, '#setting-card-profile'),
+  settingCardTheme: assertDom(dom.settingCardTheme, '#setting-card-theme'),
+  settingCardFontSize: assertDom(dom.settingCardFontSize, '#setting-card-font-size'),
+  settingCardLineHeight: assertDom(dom.settingCardLineHeight, '#setting-card-line-height'),
+  settingCardCursorStyle: assertDom(dom.settingCardCursorStyle, '#setting-card-cursor-style'),
+  settingCardCursorBlink: assertDom(dom.settingCardCursorBlink, '#setting-card-cursor-blink'),
+  settingCardPadding: assertDom(dom.settingCardPadding, '#setting-card-padding'),
+  settingCardNew: assertDom(dom.settingCardNew, '#setting-card-new'),
+  settingCardDelete: assertDom(dom.settingCardDelete, '#setting-card-delete')
 };
 
 const toasts = createToastManager(ui.toastContainer, ui.toastAnnouncer);
@@ -196,15 +248,63 @@ function applyThemeState(): void {
   applyThemeChrome(resolvedTheme, settings.vibrancy);
 }
 
-function terminalOptions(): ITerminalOptions {
+function currentWorkspace(): WorkspacePreset | undefined {
+  return settings.workspaces.find((workspace) => workspace.id === settings.activeWorkspaceId) ?? settings.workspaces[0];
+}
+
+function defaultProfileCardForActiveWorkspace(): string {
+  return currentWorkspace()?.defaultProfileCardId || settings.defaultProfileCardId;
+}
+
+function profileCardById(cardId: string | undefined): ProfileCard | undefined {
+  if (!cardId) {
+    return undefined;
+  }
+
+  return settings.profileCards.find((card) => card.id === cardId);
+}
+
+function resolvedProfileCard(cardId: string | undefined): ProfileCard {
+  const byId = profileCardById(cardId);
+  if (byId) {
+    return byId;
+  }
+
+  return (
+    settings.profileCards.find((card) => card.id === settings.defaultProfileCardId) ??
+    settings.profileCards[0] ?? {
+      id: 'default-card',
+      name: 'Default Card',
+      profileId: settings.defaultProfileId
+    }
+  );
+}
+
+function terminalThemeForCard(card: ProfileCard | undefined) {
+  if (!card?.theme) {
+    return resolvedTheme.theme.terminal;
+  }
+
+  const state = resolveThemeState(
+    {
+      ...settings,
+      theme: card.theme
+    },
+    systemAppearance
+  );
+  return state.theme.terminal;
+}
+
+function terminalOptions(card?: ProfileCard): ITerminalOptions {
+  const selectedCard = card ?? resolvedProfileCard(settings.defaultProfileCardId);
   return {
-    fontFamily: settings.fontFamily,
-    fontSize: settings.fontSize,
-    lineHeight: settings.lineHeight,
-    cursorStyle: settings.cursorStyle,
-    cursorBlink: settings.cursorBlink,
+    fontFamily: selectedCard.fontFamily || settings.fontFamily,
+    fontSize: selectedCard.fontSize ?? settings.fontSize,
+    lineHeight: selectedCard.lineHeight ?? settings.lineHeight,
+    cursorStyle: selectedCard.cursorStyle ?? settings.cursorStyle,
+    cursorBlink: selectedCard.cursorBlink ?? settings.cursorBlink,
     scrollback: settings.scrollback,
-    theme: resolvedTheme.theme.terminal,
+    theme: terminalThemeForCard(selectedCard),
     allowTransparency: true,
     convertEol: false,
     rightClickSelectsWord: true,
@@ -213,13 +313,15 @@ function terminalOptions(): ITerminalOptions {
 }
 
 function applyTabSettings(tab: TabState): void {
-  tab.term.options.fontFamily = settings.fontFamily;
-  tab.term.options.fontSize = settings.fontSize;
-  tab.term.options.lineHeight = settings.lineHeight;
-  tab.term.options.cursorStyle = settings.cursorStyle;
-  tab.term.options.cursorBlink = settings.cursorBlink;
+  const card = resolvedProfileCard(tab.profileCardId);
+  tab.term.options.fontFamily = card.fontFamily || settings.fontFamily;
+  tab.term.options.fontSize = card.fontSize ?? settings.fontSize;
+  tab.term.options.lineHeight = card.lineHeight ?? settings.lineHeight;
+  tab.term.options.cursorStyle = card.cursorStyle ?? settings.cursorStyle;
+  tab.term.options.cursorBlink = card.cursorBlink ?? settings.cursorBlink;
   tab.term.options.scrollback = settings.scrollback;
-  tab.term.options.theme = resolvedTheme.theme.terminal;
+  tab.term.options.theme = terminalThemeForCard(card);
+  tab.container.style.padding = `${card.padding ?? 8}px`;
   tab.fit.fit();
   window.terminalAPI.resizeSession({
     sessionId: tab.sessionId,
@@ -673,6 +775,13 @@ function updateStatus(): void {
     ui.statusTabs.title = 'No open tabs';
     setStatusSegmentState(ui.statusTabs, 'idle');
 
+    const workspace = currentWorkspace();
+    ui.statusWorkspace.textContent = workspace?.name || 'Workspace';
+    ui.statusWorkspace.title = workspace
+      ? `Active workspace: ${workspace.name}. Click to switch workspace.`
+      : 'No workspace configured.';
+    setStatusSegmentState(ui.statusWorkspace, 'idle');
+
     ui.statusTheme.textContent = resolvedTheme.themeName;
     ui.statusTheme.title = 'Theme';
     setStatusSegmentState(ui.statusTheme, 'idle');
@@ -716,6 +825,13 @@ function updateStatus(): void {
   ui.statusTabs.textContent = `${tabOrder.length} tab${tabOrder.length === 1 ? '' : 's'}`;
   ui.statusTabs.title = `${tabOrder.length} open tab${tabOrder.length === 1 ? '' : 's'}.`;
   setStatusSegmentState(ui.statusTabs, 'idle');
+
+  const workspace = currentWorkspace();
+  ui.statusWorkspace.textContent = workspace?.name || 'Workspace';
+  ui.statusWorkspace.title = workspace
+    ? `Active workspace: ${workspace.name}. Click to switch workspace.`
+    : 'No workspace configured.';
+  setStatusSegmentState(ui.statusWorkspace, 'idle');
 
   const themeLabel =
     settings.theme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName;
@@ -779,7 +895,7 @@ function markTabOutput(tab: TabState): void {
   }
 }
 
-async function createTab(): Promise<void> {
+async function createTab(options: CreateTabOptions = {}): Promise<void> {
   const tabId = crypto.randomUUID();
   const container = document.createElement('div');
   container.className = 'terminal-pane';
@@ -788,7 +904,8 @@ async function createTab(): Promise<void> {
   container.setAttribute('aria-labelledby', `tab-${tabId}`);
   ui.terminalHost.appendChild(container);
 
-  const term = new Terminal(terminalOptions());
+  const profileCard = resolvedProfileCard(options.profileCardId);
+  const term = new Terminal(terminalOptions(profileCard));
   const fit = new FitAddon();
   const search = new SearchAddon();
   term.loadAddon(fit);
@@ -800,6 +917,8 @@ async function createTab(): Promise<void> {
   let summary: SessionSummary;
   try {
     summary = await window.terminalAPI.createSession({
+      profileId: profileCard.profileId,
+      cwd: options.cwd,
       cols: term.cols,
       rows: term.rows
     });
@@ -835,7 +954,8 @@ async function createTab(): Promise<void> {
     hasUnreadOutput: false,
     hasRecentOutput: false,
     searchResultIndex: -1,
-    searchResultCount: 0
+    searchResultCount: 0,
+    profileCardId: profileCard.id
   };
 
   tabs.set(tabId, tab);
@@ -880,6 +1000,13 @@ async function createTab(): Promise<void> {
   reconcileTabTitles();
   syncCommandPaletteActions();
   activateTab(tabId);
+
+  if (options.startupCommand && options.startupCommand.trim()) {
+    window.terminalAPI.writeToSession({
+      sessionId: summary.sessionId,
+      data: `${options.startupCommand.trim()}\r`
+    });
+  }
 }
 
 async function closeTab(tabId: string): Promise<void> {
@@ -898,7 +1025,9 @@ async function closeTab(tabId: string): Promise<void> {
   tabOrder = tabOrder.filter((id) => id !== tabId);
 
   if (tabOrder.length === 0) {
-    await createTab();
+    await createTab({
+      profileCardId: defaultProfileCardForActiveWorkspace()
+    });
     return;
   }
 
@@ -920,6 +1049,115 @@ async function closeTab(tabId: string): Promise<void> {
 
 function activeTab(): TabState | undefined {
   return tabs.get(activeTabId);
+}
+
+function workspaceById(workspaceId: string | undefined): WorkspacePreset | undefined {
+  if (!workspaceId) {
+    return undefined;
+  }
+
+  return settings.workspaces.find((workspace) => workspace.id === workspaceId);
+}
+
+function makeId(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function snapshotCurrentTabs(defaultProfileCardId: string): WorkspaceStartupTab[] {
+  const startupTabs: WorkspaceStartupTab[] = [];
+  for (const tabId of tabOrder) {
+    const tab = tabs.get(tabId);
+    if (!tab) {
+      continue;
+    }
+
+    startupTabs.push({
+      id: makeId('startup'),
+      profileCardId: profileCardById(tab.profileCardId)?.id ?? defaultProfileCardId,
+      cwd: tab.cwd,
+      command: ''
+    });
+  }
+
+  if (startupTabs.length > 0) {
+    return startupTabs;
+  }
+
+  return [
+    {
+      id: makeId('startup'),
+      profileCardId: defaultProfileCardId,
+      cwd: homeDirectory || '/',
+      command: ''
+    }
+  ];
+}
+
+function disposeAllTabs(): void {
+  for (const tab of tabs.values()) {
+    clearOutputPulse(tab);
+    clearTabSearch(tab);
+    window.terminalAPI.closeSession(tab.sessionId);
+    tab.term.dispose();
+    tab.container.remove();
+  }
+
+  tabs.clear();
+  tabOrder = [];
+  activeTabId = '';
+  renderTabStrip();
+}
+
+async function loadWorkspaceTabs(workspace: WorkspacePreset): Promise<void> {
+  disposeAllTabs();
+  const startupTabs =
+    workspace.startupTabs.length > 0
+      ? workspace.startupTabs
+      : [
+          {
+            id: makeId('startup'),
+            profileCardId: workspace.defaultProfileCardId,
+            cwd: homeDirectory || '/',
+            command: ''
+          }
+        ];
+
+  for (const startup of startupTabs) {
+    await createTab({
+      profileCardId: startup.profileCardId || workspace.defaultProfileCardId,
+      cwd: startup.cwd,
+      startupCommand: startup.command
+    });
+  }
+
+  renderTabStrip();
+  updateStatus();
+  void refreshActiveGitStatus(true);
+}
+
+async function setActiveWorkspace(workspaceId: string, reloadTabs: boolean): Promise<void> {
+  const workspace = workspaceById(workspaceId);
+  if (!workspace) {
+    return;
+  }
+
+  if (settings.activeWorkspaceId !== workspace.id) {
+    settings = await window.terminalAPI.updateSettings({ activeWorkspaceId: workspace.id });
+  }
+
+  if (reloadTabs) {
+    const active = workspaceById(settings.activeWorkspaceId);
+    if (active) {
+      await loadWorkspaceTabs(active);
+    }
+  }
+
+  if (isSettingsOpen()) {
+    syncSettingsFormFromState(settings);
+  }
+
+  syncCommandPaletteActions();
+  updateStatus();
 }
 
 function isSearchOpen(): boolean {
@@ -1109,6 +1347,176 @@ function focusSelectedThemeSwatch(): void {
   (selected ?? ui.settingThemeSwatches.querySelector<HTMLButtonElement>('.theme-swatch'))?.focus();
 }
 
+function selectOptions(
+  element: HTMLSelectElement,
+  options: Array<{ value: string; label: string }>,
+  selectedValue: string
+): void {
+  element.innerHTML = '';
+  for (const option of options) {
+    const opt = document.createElement('option');
+    opt.value = option.value;
+    opt.textContent = option.label;
+    element.append(opt);
+  }
+
+  if (options.some((option) => option.value === selectedValue)) {
+    element.value = selectedValue;
+    return;
+  }
+
+  element.value = options[0]?.value ?? '';
+}
+
+function parseOptionalNumber(value: string): number | undefined {
+  if (!value.trim()) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function workspaceStartupRowsFromEditor(defaultProfileCardId: string): WorkspaceStartupTab[] {
+  const rows = ui.settingWorkspaceTabs.querySelectorAll<HTMLDivElement>('.workspace-tab-row');
+  const tabs: WorkspaceStartupTab[] = [];
+  for (const row of rows) {
+    const profileCard = row.querySelector<HTMLSelectElement>('.workspace-tab-card');
+    const cwdInput = row.querySelector<HTMLInputElement>('.workspace-tab-cwd');
+    const commandInput = row.querySelector<HTMLInputElement>('.workspace-tab-command');
+    if (!profileCard || !cwdInput || !commandInput) {
+      continue;
+    }
+
+    tabs.push({
+      id: row.dataset.tabId || makeId('startup'),
+      profileCardId: profileCard.value || defaultProfileCardId,
+      cwd: cwdInput.value.trim() || homeDirectory || '/',
+      command: commandInput.value.trim()
+    });
+  }
+
+  if (tabs.length > 0) {
+    return tabs;
+  }
+
+  return [
+    {
+      id: makeId('startup'),
+      profileCardId: defaultProfileCardId,
+      cwd: homeDirectory || '/',
+      command: ''
+    }
+  ];
+}
+
+function appendWorkspaceStartupRow(tab: WorkspaceStartupTab): void {
+  const row = document.createElement('div');
+  row.className = 'workspace-tab-row';
+  row.dataset.tabId = tab.id || makeId('startup');
+
+  const cardSelect = document.createElement('select');
+  cardSelect.className = 'workspace-tab-card';
+  selectOptions(
+    cardSelect,
+    settings.profileCards.map((card) => ({ value: card.id, label: card.name })),
+    tab.profileCardId
+  );
+
+  const cwdInput = document.createElement('input');
+  cwdInput.className = 'workspace-tab-cwd';
+  cwdInput.type = 'text';
+  cwdInput.placeholder = '/path/to/project';
+  cwdInput.value = tab.cwd || homeDirectory || '/';
+
+  const commandInput = document.createElement('input');
+  commandInput.className = 'workspace-tab-command';
+  commandInput.type = 'text';
+  commandInput.placeholder = 'Optional startup command';
+  commandInput.value = tab.command || '';
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'workspace-tab-remove';
+  removeButton.textContent = 'Remove';
+  removeButton.addEventListener('click', () => {
+    row.remove();
+    previewSettingsFromForm();
+  });
+
+  row.append(cardSelect, cwdInput, commandInput, removeButton);
+  ui.settingWorkspaceTabs.append(row);
+}
+
+function syncWorkspaceEditor(source: AppSettings): void {
+  const workspaceOptions = source.workspaces.map((workspace) => ({
+    value: workspace.id,
+    label: workspace.name
+  }));
+  const fallbackWorkspaceId = source.activeWorkspaceId || workspaceOptions[0]?.value || '';
+  const nextWorkspaceId =
+    editingWorkspaceId && source.workspaces.some((workspace) => workspace.id === editingWorkspaceId)
+      ? editingWorkspaceId
+      : fallbackWorkspaceId;
+  editingWorkspaceId = nextWorkspaceId;
+
+  selectOptions(ui.settingWorkspace, workspaceOptions, nextWorkspaceId);
+  const workspace = source.workspaces.find((item) => item.id === nextWorkspaceId) ?? source.workspaces[0];
+  if (!workspace) {
+    return;
+  }
+
+  ui.settingWorkspaceName.value = workspace.name;
+  selectOptions(
+    ui.settingWorkspaceDefaultCard,
+    source.profileCards.map((card) => ({ value: card.id, label: card.name })),
+    workspace.defaultProfileCardId
+  );
+
+  ui.settingWorkspaceTabs.innerHTML = '';
+  for (const tab of workspace.startupTabs) {
+    appendWorkspaceStartupRow(tab);
+  }
+}
+
+function syncProfileCardEditor(source: AppSettings): void {
+  const cardOptions = source.profileCards.map((card) => ({
+    value: card.id,
+    label: card.name
+  }));
+  const fallbackCardId = source.defaultProfileCardId || cardOptions[0]?.value || '';
+  const nextCardId =
+    editingProfileCardId && source.profileCards.some((card) => card.id === editingProfileCardId)
+      ? editingProfileCardId
+      : fallbackCardId;
+  editingProfileCardId = nextCardId;
+
+  selectOptions(ui.settingProfileCard, cardOptions, nextCardId);
+  selectOptions(
+    ui.settingCardProfile,
+    source.profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+    source.profileCards.find((card) => card.id === nextCardId)?.profileId ?? source.defaultProfileId
+  );
+
+  const card = source.profileCards.find((item) => item.id === nextCardId) ?? source.profileCards[0];
+  if (!card) {
+    return;
+  }
+
+  ui.settingCardName.value = card.name;
+  ui.settingCardTheme.value = card.theme ?? '';
+  ui.settingCardFontSize.value = card.fontSize ? String(card.fontSize) : '';
+  ui.settingCardLineHeight.value = card.lineHeight ? String(card.lineHeight) : '';
+  ui.settingCardCursorStyle.value = card.cursorStyle ?? '';
+  ui.settingCardCursorBlink.value =
+    typeof card.cursorBlink === 'boolean' ? (card.cursorBlink ? 'true' : 'false') : '';
+  ui.settingCardPadding.value = card.padding !== undefined ? String(card.padding) : '';
+}
+
 function syncSettingsFormFromState(source: AppSettings): void {
   ui.settingFontFamily.value = source.fontFamily;
   ui.settingFontSize.value = String(source.fontSize);
@@ -1125,9 +1533,55 @@ function syncSettingsFormFromState(source: AppSettings): void {
   setRangeFill(ui.settingLineHeight);
   setRangeFill(ui.settingOpacity);
   syncThemeSwatches();
+  syncWorkspaceEditor(source);
+  syncProfileCardEditor(source);
 }
 
 function settingsPatchFromForm(): SettingsPatch {
+  const base = settingsPreviewBaseline ?? settings;
+  const workspaceId = ui.settingWorkspace.value || base.activeWorkspaceId;
+  const activeWorkspace = base.workspaces.find((workspace) => workspace.id === workspaceId) ?? base.workspaces[0];
+  const profileCardId = ui.settingProfileCard.value || base.defaultProfileCardId;
+
+  const profileCards = base.profileCards.map((card) => {
+    if (card.id !== profileCardId) {
+      return card;
+    }
+
+    return {
+      ...card,
+      name: ui.settingCardName.value.trim() || card.name,
+      profileId: ui.settingCardProfile.value || card.profileId,
+      theme: (ui.settingCardTheme.value || undefined) as ThemeSelection | undefined,
+      fontSize: parseOptionalNumber(ui.settingCardFontSize.value),
+      lineHeight: parseOptionalNumber(ui.settingCardLineHeight.value),
+      cursorStyle: (ui.settingCardCursorStyle.value || undefined) as CursorStyle | undefined,
+      cursorBlink:
+        ui.settingCardCursorBlink.value === ''
+          ? undefined
+          : ui.settingCardCursorBlink.value === 'true',
+      padding: parseOptionalNumber(ui.settingCardPadding.value)
+    };
+  });
+
+  const workspaces = base.workspaces.map((workspace) => {
+    if (workspace.id !== workspaceId) {
+      return workspace;
+    }
+
+    const defaultProfileCardId = ui.settingWorkspaceDefaultCard.value || workspace.defaultProfileCardId;
+    return {
+      ...workspace,
+      name: ui.settingWorkspaceName.value.trim() || workspace.name,
+      defaultProfileCardId,
+      startupTabs: workspaceStartupRowsFromEditor(defaultProfileCardId)
+    };
+  });
+
+  const nextDefaultProfileCardId = base.profileCards.some((card) => card.id === base.defaultProfileCardId)
+    ? base.defaultProfileCardId
+    : profileCards[0]?.id || base.defaultProfileCardId;
+
   return {
     fontFamily: ui.settingFontFamily.value,
     fontSize: Number(ui.settingFontSize.value),
@@ -1138,7 +1592,11 @@ function settingsPatchFromForm(): SettingsPatch {
     appearancePreference: ui.settingAppearance.value as AppSettings['appearancePreference'],
     cursorStyle: ui.settingCursorStyle.value as CursorStyle,
     cursorBlink: ui.settingCursorBlink.checked,
-    vibrancy: ui.settingVibrancy.checked
+    vibrancy: ui.settingVibrancy.checked,
+    profileCards,
+    defaultProfileCardId: nextDefaultProfileCardId,
+    workspaces,
+    activeWorkspaceId: activeWorkspace?.id ?? workspaceId
   };
 }
 
@@ -1170,6 +1628,8 @@ function openSettings(): void {
   }
 
   settingsPreviewBaseline = structuredClone(settings);
+  editingWorkspaceId = settings.activeWorkspaceId;
+  editingProfileCardId = settings.defaultProfileCardId;
   syncSettingsFormFromState(settings);
 
   ui.settingsScrim.classList.remove('hidden');
@@ -1192,19 +1652,34 @@ function previewSettingsFromForm(): void {
     ...settingsPreviewBaseline,
     ...patch,
     profiles: settingsPreviewBaseline.profiles,
-    defaultProfileId: settingsPreviewBaseline.defaultProfileId
+    defaultProfileId: settingsPreviewBaseline.defaultProfileId,
+    profileCards: patch.profileCards ?? settingsPreviewBaseline.profileCards,
+    defaultProfileCardId: patch.defaultProfileCardId ?? settingsPreviewBaseline.defaultProfileCardId,
+    workspaces: patch.workspaces ?? settingsPreviewBaseline.workspaces,
+    activeWorkspaceId: patch.activeWorkspaceId ?? settingsPreviewBaseline.activeWorkspaceId
   };
   applySettingsToAllTabs();
   renderTabStrip();
+  syncCommandPaletteActions();
   updateStatus();
 }
 
 async function saveSettingsFromForm(): Promise<void> {
+  const previousWorkspaceId = settings.activeWorkspaceId;
   const patch = settingsPatchFromForm();
   settings = await window.terminalAPI.updateSettings(patch);
+  editingWorkspaceId = settings.activeWorkspaceId;
+  editingProfileCardId = settings.defaultProfileCardId;
   settingsPreviewBaseline = null;
+  if (previousWorkspaceId !== settings.activeWorkspaceId) {
+    const workspace = workspaceById(settings.activeWorkspaceId);
+    if (workspace) {
+      await loadWorkspaceTabs(workspace);
+    }
+  }
   applySettingsToAllTabs();
   renderTabStrip();
+  syncCommandPaletteActions();
   updateStatus();
   closeSettingsPanel(false);
 }
@@ -1256,6 +1731,156 @@ function copyActiveCwdToClipboard(): void {
     });
 }
 
+async function updateWorkspaceList(nextWorkspaces: WorkspacePreset[], activeWorkspaceId: string): Promise<void> {
+  settings = await window.terminalAPI.updateSettings({
+    workspaces: nextWorkspaces,
+    activeWorkspaceId
+  });
+}
+
+async function saveCurrentTabsToWorkspace(workspaceId: string): Promise<void> {
+  const workspace = workspaceById(workspaceId);
+  if (!workspace) {
+    return;
+  }
+
+  const startupTabs = snapshotCurrentTabs(workspace.defaultProfileCardId);
+  const nextWorkspaces = settings.workspaces.map((item) =>
+    item.id === workspace.id
+      ? {
+          ...item,
+          startupTabs
+        }
+      : item
+  );
+  await updateWorkspaceList(nextWorkspaces, settings.activeWorkspaceId);
+  if (isSettingsOpen()) {
+    syncSettingsFormFromState(settings);
+  }
+  syncCommandPaletteActions();
+  toasts.show(`Saved ${startupTabs.length} tab${startupTabs.length === 1 ? '' : 's'} to ${workspace.name}.`, 'success');
+}
+
+async function createWorkspaceFromCurrentTabs(): Promise<void> {
+  const fallbackCardId = settings.defaultProfileCardId || resolvedProfileCard(undefined).id;
+  const startupTabs = snapshotCurrentTabs(fallbackCardId);
+  const name = `Workspace ${settings.workspaces.length + 1}`;
+  const nextWorkspace: WorkspacePreset = {
+    id: makeId('workspace'),
+    name,
+    layout: 'tabs',
+    defaultProfileCardId: fallbackCardId,
+    startupTabs
+  };
+  await updateWorkspaceList([...settings.workspaces, nextWorkspace], nextWorkspace.id);
+  editingWorkspaceId = nextWorkspace.id;
+  if (isSettingsOpen()) {
+    syncSettingsFormFromState(settings);
+  }
+  syncCommandPaletteActions();
+  updateStatus();
+  toasts.show(`Created ${name}.`, 'success');
+}
+
+async function deleteWorkspace(workspaceId: string): Promise<void> {
+  if (settings.workspaces.length <= 1) {
+    toasts.show('At least one workspace is required.', 'info');
+    return;
+  }
+
+  const target = workspaceById(workspaceId);
+  if (!target) {
+    return;
+  }
+  const wasActiveWorkspace = settings.activeWorkspaceId === workspaceId;
+
+  const remaining = settings.workspaces.filter((workspace) => workspace.id !== workspaceId);
+  const replacement = remaining[0];
+  if (!replacement) {
+    return;
+  }
+
+  const nextActiveId = settings.activeWorkspaceId === workspaceId ? replacement.id : settings.activeWorkspaceId;
+  await updateWorkspaceList(remaining, nextActiveId);
+  editingWorkspaceId = settings.activeWorkspaceId;
+  if (isSettingsOpen()) {
+    syncSettingsFormFromState(settings);
+  }
+
+  if (wasActiveWorkspace) {
+    await loadWorkspaceTabs(replacement);
+  }
+
+  syncCommandPaletteActions();
+  toasts.show(`Deleted workspace ${target.name}.`, 'success');
+}
+
+async function createProfileCard(): Promise<void> {
+  const fallbackProfileId = settings.defaultProfileId;
+  const nextCard: ProfileCard = {
+    id: makeId('card'),
+    name: `Card ${settings.profileCards.length + 1}`,
+    profileId: fallbackProfileId
+  };
+
+  settings = await window.terminalAPI.updateSettings({
+    profileCards: [...settings.profileCards, nextCard]
+  });
+  editingProfileCardId = nextCard.id;
+  if (isSettingsOpen()) {
+    syncSettingsFormFromState(settings);
+  }
+  applySettingsToAllTabs();
+  renderTabStrip();
+  syncCommandPaletteActions();
+  toasts.show(`Created ${nextCard.name}.`, 'success');
+}
+
+async function deleteProfileCard(profileCardId: string): Promise<void> {
+  if (settings.profileCards.length <= 1) {
+    toasts.show('At least one profile card is required.', 'info');
+    return;
+  }
+
+  const target = profileCardById(profileCardId);
+  if (!target) {
+    return;
+  }
+
+  const remaining = settings.profileCards.filter((card) => card.id !== profileCardId);
+  const replacement = remaining[0];
+  if (!replacement) {
+    return;
+  }
+
+  const nextDefaultCardId =
+    settings.defaultProfileCardId === profileCardId ? replacement.id : settings.defaultProfileCardId;
+  const nextWorkspaces = settings.workspaces.map((workspace) => ({
+    ...workspace,
+    defaultProfileCardId:
+      workspace.defaultProfileCardId === profileCardId ? nextDefaultCardId : workspace.defaultProfileCardId,
+    startupTabs: workspace.startupTabs.map((tab) => ({
+      ...tab,
+      profileCardId: tab.profileCardId === profileCardId ? nextDefaultCardId : tab.profileCardId
+    }))
+  }));
+
+  settings = await window.terminalAPI.updateSettings({
+    profileCards: remaining,
+    defaultProfileCardId: nextDefaultCardId,
+    workspaces: nextWorkspaces
+  });
+  editingProfileCardId = nextDefaultCardId;
+  if (isSettingsOpen()) {
+    syncSettingsFormFromState(settings);
+  }
+  applySettingsToAllTabs();
+  renderTabStrip();
+  syncCommandPaletteActions();
+  updateStatus();
+  toasts.show(`Deleted ${target.name}.`, 'success');
+}
+
 function commandPaletteActions(): CommandPaletteAction[] {
   const actions: CommandPaletteAction[] = [
     {
@@ -1264,7 +1889,10 @@ function commandPaletteActions(): CommandPaletteAction[] {
       description: 'Create a new terminal tab',
       shortcut: 'Cmd/Ctrl+T',
       keywords: ['tab', 'create', 'terminal'],
-      run: () => void createTab()
+      run: () =>
+        void createTab({
+          profileCardId: defaultProfileCardForActiveWorkspace()
+        })
     },
     {
       id: 'close-tab',
@@ -1336,6 +1964,20 @@ function commandPaletteActions(): CommandPaletteAction[] {
       description: 'Copy current tab path to clipboard',
       keywords: ['copy', 'path', 'cwd'],
       run: copyActiveCwdToClipboard
+    },
+    {
+      id: 'workspace-new',
+      title: 'Create Workspace from Current Tabs',
+      description: 'Create a new workspace and snapshot current tabs',
+      keywords: ['workspace', 'save', 'tabs'],
+      run: () => void createWorkspaceFromCurrentTabs()
+    },
+    {
+      id: 'workspace-save',
+      title: 'Save Tabs to Active Workspace',
+      description: 'Update active workspace startup tabs from current tabs',
+      keywords: ['workspace', 'save', 'startup'],
+      run: () => void saveCurrentTabsToWorkspace(settings.activeWorkspaceId)
     }
   ];
 
@@ -1360,6 +2002,16 @@ function commandPaletteActions(): CommandPaletteAction[] {
       run: () => {
         activateTab(tabId);
       }
+    });
+  }
+
+  for (const workspace of settings.workspaces) {
+    actions.push({
+      id: `workspace-switch:${workspace.id}`,
+      title: workspace.id === settings.activeWorkspaceId ? `Workspace: ${workspace.name} (Active)` : `Workspace: ${workspace.name}`,
+      description: `Load ${workspace.startupTabs.length} startup tab${workspace.startupTabs.length === 1 ? '' : 's'}`,
+      keywords: ['workspace', 'switch', 'context'],
+      run: () => void setActiveWorkspace(workspace.id, true)
     });
   }
 
@@ -1392,7 +2044,9 @@ function bindMenuActions(): void {
   window.terminalAPI.onMenuAction((action: MenuAction) => {
     switch (action) {
       case 'new-tab':
-        void createTab();
+        void createTab({
+          profileCardId: defaultProfileCardForActiveWorkspace()
+        });
         break;
       case 'close-tab':
         if (activeTabId) {
@@ -1528,7 +2182,9 @@ function bindKeyboardShortcuts(): void {
 
     if (isMod && event.key === 't') {
       event.preventDefault();
-      void createTab();
+      void createTab({
+        profileCardId: defaultProfileCardForActiveWorkspace()
+      });
       return;
     }
 
@@ -1643,7 +2299,9 @@ function bindKeyboardShortcuts(): void {
 
 function bindUI(): void {
   ui.newTabButton.addEventListener('click', () => {
-    void createTab();
+    void createTab({
+      profileCardId: defaultProfileCardForActiveWorkspace()
+    });
   });
 
   ui.settingsButton.addEventListener('click', () => {
@@ -1668,6 +2326,10 @@ function bindUI(): void {
 
   ui.statusGit.addEventListener('click', () => {
     void refreshActiveGitStatus(true);
+  });
+
+  ui.statusWorkspace.addEventListener('click', () => {
+    openCommandPalette();
   });
 
   ui.statusContext.addEventListener('click', () => {
@@ -1714,6 +2376,49 @@ function bindUI(): void {
   ui.searchNext.addEventListener('click', () => runSearch(true, false));
   ui.searchPrev.addEventListener('click', () => runSearch(false, false));
   ui.searchClose.addEventListener('click', () => closeSearch());
+
+  ui.settingWorkspace.addEventListener('change', () => {
+    editingWorkspaceId = ui.settingWorkspace.value;
+    syncWorkspaceEditor(settings);
+    previewSettingsFromForm();
+  });
+
+  ui.settingProfileCard.addEventListener('change', () => {
+    editingProfileCardId = ui.settingProfileCard.value;
+    syncProfileCardEditor(settings);
+    previewSettingsFromForm();
+  });
+
+  ui.settingWorkspaceAddTab.addEventListener('click', () => {
+    const workspace = workspaceById(editingWorkspaceId) ?? currentWorkspace();
+    appendWorkspaceStartupRow({
+      id: makeId('startup'),
+      profileCardId: workspace?.defaultProfileCardId || settings.defaultProfileCardId,
+      cwd: homeDirectory || '/',
+      command: ''
+    });
+    previewSettingsFromForm();
+  });
+
+  ui.settingWorkspaceNew.addEventListener('click', () => {
+    void createWorkspaceFromCurrentTabs();
+  });
+
+  ui.settingWorkspaceDelete.addEventListener('click', () => {
+    void deleteWorkspace(editingWorkspaceId || settings.activeWorkspaceId);
+  });
+
+  ui.settingWorkspaceCapture.addEventListener('click', () => {
+    void saveCurrentTabsToWorkspace(editingWorkspaceId || settings.activeWorkspaceId);
+  });
+
+  ui.settingCardNew.addEventListener('click', () => {
+    void createProfileCard();
+  });
+
+  ui.settingCardDelete.addEventListener('click', () => {
+    void deleteProfileCard(editingProfileCardId || settings.defaultProfileCardId);
+  });
 
   ui.settingThemeSwatches.addEventListener('click', (event) => {
     const target = event.target;
@@ -1821,7 +2526,14 @@ async function boot(): Promise<void> {
   bindSessionEvents();
   bindSystemAppearanceEvents();
   startGitStatusPolling();
-  await createTab();
+  const workspace = currentWorkspace();
+  if (workspace) {
+    await loadWorkspaceTabs(workspace);
+  } else {
+    await createTab({
+      profileCardId: defaultProfileCardForActiveWorkspace()
+    });
+  }
   updateStatus();
   void refreshActiveGitStatus(true);
 }
