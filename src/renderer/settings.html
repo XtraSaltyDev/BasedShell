@@ -20,15 +20,39 @@
       </header>
 
       <div class="settings-window-body">
-        <nav class="settings-nav" aria-label="Settings sections">
-          <button class="settings-nav-item active" data-section="appearance" type="button">Appearance</button>
-          <button class="settings-nav-item" data-section="terminal" type="button">Terminal</button>
-          <button class="settings-nav-item" data-section="behavior" type="button">Behavior</button>
+        <nav class="settings-nav" aria-label="Settings sections" role="tablist" aria-orientation="vertical">
+          <button
+            class="settings-nav-item active"
+            data-section="appearance"
+            type="button"
+            aria-selected="true"
+            aria-controls="section-appearance"
+          >
+            Appearance
+          </button>
+          <button
+            class="settings-nav-item"
+            data-section="terminal"
+            type="button"
+            aria-selected="false"
+            aria-controls="section-terminal"
+          >
+            Terminal
+          </button>
+          <button
+            class="settings-nav-item"
+            data-section="behavior"
+            type="button"
+            aria-selected="false"
+            aria-controls="section-behavior"
+          >
+            Behavior
+          </button>
         </nav>
 
         <main class="settings-content" id="settings-content">
           <form id="settings-form" class="settings-form" novalidate>
-            <section class="settings-section" id="section-appearance" data-section="appearance">
+            <section class="settings-section active" id="section-appearance" data-section="appearance" role="tabpanel">
               <h2>Appearance</h2>
               <p class="section-note">Theme, chrome style, and system appearance behavior.</p>
 
@@ -58,7 +82,7 @@
               </label>
             </section>
 
-            <section class="settings-section" id="section-terminal" data-section="terminal">
+            <section class="settings-section" id="section-terminal" data-section="terminal" role="tabpanel" hidden>
               <h2>Terminal</h2>
               <p class="section-note">Text rendering and cursor settings for all tabs.</p>
 
@@ -92,7 +116,7 @@
               </label>
             </section>
 
-            <section class="settings-section" id="section-behavior" data-section="behavior">
+            <section class="settings-section" id="section-behavior" data-section="behavior" role="tabpanel" hidden>
               <h2>Behavior</h2>
               <p class="section-note">Runtime behavior and command history scale.</p>
 

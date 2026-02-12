@@ -11,7 +11,11 @@ const THEME_OPTIONS: Array<{ value: ThemeSelection; label: string }> = [
   { value: 'paper', label: 'Paper' },
   { value: 'aurora', label: 'Aurora' },
   { value: 'noir', label: 'Noir' },
-  { value: 'fog', label: 'Fog' }
+  { value: 'fog', label: 'Fog' },
+  { value: 'catppuccin-latte', label: 'Latte' },
+  { value: 'catppuccin-frappe', label: 'Frappe' },
+  { value: 'catppuccin-macchiato', label: 'Macchiato' },
+  { value: 'catppuccin-mocha', label: 'Mocha' }
 ];
 
 const dom = {
@@ -21,6 +25,7 @@ const dom = {
   cancelButton: document.querySelector<HTMLButtonElement>('#settings-cancel'),
   resetButton: document.querySelector<HTMLButtonElement>('#settings-reset'),
   navItems: document.querySelectorAll<HTMLButtonElement>('.settings-nav-item'),
+  sections: document.querySelectorAll<HTMLElement>('.settings-section'),
   themeSwatches: document.querySelector<HTMLDivElement>('#setting-theme-swatches'),
   themeInput: document.querySelector<HTMLInputElement>('#setting-theme'),
   fontFamily: document.querySelector<HTMLInputElement>('#setting-font-family'),
@@ -49,6 +54,7 @@ const ui = {
   cancelButton: assertDom(dom.cancelButton, '#settings-cancel'),
   resetButton: assertDom(dom.resetButton, '#settings-reset'),
   navItems: dom.navItems,
+  sections: dom.sections,
   themeSwatches: assertDom(dom.themeSwatches, '#setting-theme-swatches'),
   themeInput: assertDom(dom.themeInput, '#setting-theme'),
   fontFamily: assertDom(dom.fontFamily, '#setting-font-family'),
@@ -66,6 +72,15 @@ let settings: AppSettings;
 let systemAppearance: AppearanceMode = 'dark';
 let isDirty = false;
 let isSaving = false;
+let activeSection = 'appearance';
+
+function applyPlatformClass(): void {
+  const ua = navigator.userAgent.toLowerCase();
+  const isMac = ua.includes('mac os x') || ua.includes('macintosh');
+  if (isMac) {
+    document.documentElement.classList.add('platform-mac');
+  }
+}
 
 function setRangeFill(input: HTMLInputElement): void {
   if (input.type !== 'range') {
@@ -201,56 +216,46 @@ async function saveSettings(): Promise<void> {
 
 function activateNav(sectionName: string): void {
   for (const item of ui.navItems) {
-    item.classList.toggle('active', item.dataset.section === sectionName);
+    const active = item.dataset.section === sectionName;
+    item.classList.toggle('active', active);
+    item.setAttribute('aria-selected', active ? 'true' : 'false');
   }
+}
+
+function showSection(sectionName: string): void {
+  const fallbackSection = ui.sections[0]?.dataset.section || 'appearance';
+  const hasSection = Array.from(ui.sections).some((section) => section.dataset.section === sectionName);
+  const nextSection = hasSection ? sectionName : fallbackSection;
+  let matched = false;
+  for (const section of ui.sections) {
+    const active = section.dataset.section === nextSection;
+    section.classList.toggle('active', active);
+    section.toggleAttribute('hidden', !active);
+    if (active) {
+      matched = true;
+    }
+  }
+
+  if (!matched) {
+    return;
+  }
+
+  activeSection = nextSection;
+  activateNav(nextSection);
 }
 
 function bindSectionNav(): void {
   for (const item of ui.navItems) {
+    item.setAttribute('role', 'tab');
+    item.setAttribute('aria-selected', item.classList.contains('active') ? 'true' : 'false');
     item.addEventListener('click', () => {
       const sectionName = item.dataset.section;
-      if (!sectionName) {
+      if (!sectionName || sectionName === activeSection) {
         return;
       }
 
-      const target = document.querySelector<HTMLElement>(`#section-${sectionName}`);
-      if (!target) {
-        return;
-      }
-
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      activateNav(sectionName);
+      showSection(sectionName);
     });
-  }
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      let nextSection = '';
-      for (const entry of entries) {
-        if (!entry.isIntersecting) {
-          continue;
-        }
-
-        const sectionName = (entry.target as HTMLElement).dataset.section;
-        if (sectionName) {
-          nextSection = sectionName;
-          break;
-        }
-      }
-
-      if (nextSection) {
-        activateNav(nextSection);
-      }
-    },
-    {
-      root: document.querySelector('#settings-content'),
-      threshold: 0.35
-    }
-  );
-
-  const sections = document.querySelectorAll<HTMLElement>('.settings-section');
-  for (const section of sections) {
-    observer.observe(section);
   }
 }
 
@@ -330,8 +335,10 @@ function bindExternalEvents(): void {
 }
 
 async function boot(): Promise<void> {
+  applyPlatformClass();
   renderThemeSwatches();
   bindSectionNav();
+  showSection(activeSection);
   bindForm();
   bindExternalEvents();
 

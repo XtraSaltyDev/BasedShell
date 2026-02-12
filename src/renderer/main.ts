@@ -689,7 +689,11 @@ const themeCycleOrder: ThemeSelection[] = [
   'paper',
   'aurora',
   'noir',
-  'fog'
+  'fog',
+  'catppuccin-latte',
+  'catppuccin-frappe',
+  'catppuccin-macchiato',
+  'catppuccin-mocha'
 ];
 
 async function cycleTheme(): Promise<void> {

@@ -18,11 +18,18 @@ const THEMES = new Set<ThemeSelection>([
   'paper',
   'aurora',
   'noir',
-  'fog'
+  'fog',
+  'catppuccin-latte',
+  'catppuccin-frappe',
+  'catppuccin-macchiato',
+  'catppuccin-mocha'
 ]);
 const APPEARANCE_PREFERENCES = new Set<AppearancePreference>(['system', 'dark', 'light']);
 const CURSORS = new Set<CursorStyle>(['block', 'underline', 'bar']);
 const SETTINGS_SCHEMA_VERSION = 2;
+const LEGACY_THEME_ALIASES: Record<string, ThemeSelection> = {
+  catppuccin: 'catppuccin-mocha'
+};
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -30,6 +37,19 @@ function clamp(value: number, min: number, max: number): number {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function normalizeThemeSelection(value: unknown): ThemeSelection | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = LEGACY_THEME_ALIASES[value] ?? value;
+  if (THEMES.has(normalized as ThemeSelection)) {
+    return normalized as ThemeSelection;
+  }
+
+  return undefined;
 }
 
 function sanitizeProfile(candidate: TerminalProfile, fallbackCwd: string): TerminalProfile {
@@ -191,7 +211,7 @@ export class SettingsService {
       cursorBlink: Boolean(candidate.cursorBlink),
       scrollback: Math.round(clamp(Number(candidate.scrollback) || 20000, 1000, 200000)),
       backgroundOpacity: clamp(Number(candidate.backgroundOpacity) || 0.92, 0.6, 1),
-      theme: THEMES.has(candidate.theme) ? candidate.theme : 'graphite',
+      theme: normalizeThemeSelection(candidate.theme) ?? 'graphite',
       appearancePreference: APPEARANCE_PREFERENCES.has(candidate.appearancePreference)
         ? candidate.appearancePreference
         : 'system',

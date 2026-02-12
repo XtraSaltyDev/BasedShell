@@ -1,4 +1,15 @@
-export type ThemeName = 'graphite' | 'midnight' | 'solarized-dark' | 'paper' | 'aurora' | 'noir' | 'fog';
+export type ThemeName =
+  | 'graphite'
+  | 'midnight'
+  | 'solarized-dark'
+  | 'paper'
+  | 'aurora'
+  | 'noir'
+  | 'fog'
+  | 'catppuccin-latte'
+  | 'catppuccin-frappe'
+  | 'catppuccin-macchiato'
+  | 'catppuccin-mocha';
 
 export type ThemeSelection = ThemeName | 'system';
 
