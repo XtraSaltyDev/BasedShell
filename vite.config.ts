@@ -11,8 +11,7 @@ export default defineConfig({
     emptyOutDir: false,
     rollupOptions: {
       input: {
-        main: path.resolve(rendererRoot, 'index.html'),
-        settings: path.resolve(rendererRoot, 'settings.html')
+        main: path.resolve(rendererRoot, 'index.html')
       }
     }
   }
