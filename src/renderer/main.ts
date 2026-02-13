@@ -102,6 +102,7 @@ interface SettingsUi {
   settingTheme: HTMLInputElement;
   settingAppearance: HTMLSelectElement;
   settingCursorStyle: HTMLSelectElement;
+  settingPromptStyle: HTMLSelectElement;
   settingCursorBlink: HTMLInputElement;
   settingVibrancy: HTMLInputElement;
 }
@@ -154,6 +155,7 @@ const dom = {
   settingTheme: document.querySelector<HTMLInputElement>('#setting-theme'),
   settingAppearance: document.querySelector<HTMLSelectElement>('#setting-appearance'),
   settingCursorStyle: document.querySelector<HTMLSelectElement>('#setting-cursor-style'),
+  settingPromptStyle: document.querySelector<HTMLSelectElement>('#setting-prompt-style'),
   settingCursorBlink: document.querySelector<HTMLInputElement>('#setting-cursor-blink'),
   settingVibrancy: document.querySelector<HTMLInputElement>('#setting-vibrancy')
 };
@@ -201,6 +203,7 @@ function bindSettingsUi(): SettingsUi | null {
     ['settingTheme', dom.settingTheme],
     ['settingAppearance', dom.settingAppearance],
     ['settingCursorStyle', dom.settingCursorStyle],
+    ['settingPromptStyle', dom.settingPromptStyle],
     ['settingCursorBlink', dom.settingCursorBlink],
     ['settingVibrancy', dom.settingVibrancy]
   ];
@@ -236,6 +239,7 @@ function bindSettingsUi(): SettingsUi | null {
     settingTheme: dom.settingTheme as HTMLInputElement,
     settingAppearance: dom.settingAppearance as HTMLSelectElement,
     settingCursorStyle: dom.settingCursorStyle as HTMLSelectElement,
+    settingPromptStyle: dom.settingPromptStyle as HTMLSelectElement,
     settingCursorBlink: dom.settingCursorBlink as HTMLInputElement,
     settingVibrancy: dom.settingVibrancy as HTMLInputElement
   };
@@ -1856,6 +1860,7 @@ function syncSettingsFormFromState(source: AppSettings): void {
   settingsUi.settingTheme.value = source.theme;
   settingsUi.settingAppearance.value = source.appearancePreference;
   settingsUi.settingCursorStyle.value = source.cursorStyle;
+  settingsUi.settingPromptStyle.value = source.promptStyle;
   settingsUi.settingCursorBlink.checked = source.cursorBlink;
   settingsUi.settingVibrancy.checked = source.vibrancy;
 
@@ -1879,6 +1884,7 @@ function settingsPatchFromForm(): SettingsPatch {
     theme: settingsUi.settingTheme.value as ThemeSelection,
     appearancePreference: settingsUi.settingAppearance.value as AppSettings['appearancePreference'],
     cursorStyle: settingsUi.settingCursorStyle.value as CursorStyle,
+    promptStyle: settingsUi.settingPromptStyle.value as AppSettings['promptStyle'],
     cursorBlink: settingsUi.settingCursorBlink.checked,
     vibrancy: settingsUi.settingVibrancy.checked
   };

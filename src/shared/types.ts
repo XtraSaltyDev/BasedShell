@@ -18,6 +18,7 @@ export type AppearanceMode = 'light' | 'dark';
 export type AppearancePreference = 'system' | AppearanceMode;
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
+export type PromptStyle = 'system' | 'minimal';
 
 export interface TerminalAnsiTheme {
   background: string;
@@ -133,6 +134,7 @@ export interface AppSettings {
   theme: ThemeSelection;
   appearancePreference: AppearancePreference;
   vibrancy: boolean;
+  promptStyle: PromptStyle;
   ui: UiSettings;
   profiles: TerminalProfile[];
   defaultProfileId: string;
