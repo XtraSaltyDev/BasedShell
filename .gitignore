@@ -29,3 +29,6 @@ coverage
 
 # macOS metadata
 ._*
+
+# Local agent instructions
+AGENTS.md
