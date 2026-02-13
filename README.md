@@ -2,6 +2,16 @@
 
 BasedShell is a keyboard-first macOS terminal app built with Electron, `node-pty`, and `xterm.js`.
 
+## UI Showcase
+
+Main terminal window:
+
+![BasedShell main window](docs/screenshots/ui-main.png)
+
+Status HUD close-up:
+
+![BasedShell status HUD](docs/screenshots/ui-statusbar.png)
+
 ## Highlights
 
 - Native PTY sessions (login shell) with sanitized runtime environment
