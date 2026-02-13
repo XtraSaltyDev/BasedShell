@@ -8,10 +8,6 @@ Main terminal window:
 
 ![BasedShell main window](docs/screenshots/ui-main.png)
 
-Status HUD close-up:
-
-![BasedShell status HUD](docs/screenshots/ui-statusbar.png)
-
 ## Highlights
 
 - Native PTY sessions (login shell) with sanitized runtime environment
