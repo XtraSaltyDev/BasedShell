@@ -1,5 +1,5 @@
 :root {
-  /* Primitive palette */
+  /* Primitive palette — deeper, more saturated for glassmorphic depth */
   --primitive-gray-950: #08090e;
   --primitive-gray-900: #0d0f16;
   --primitive-gray-850: #11141e;
@@ -17,19 +17,19 @@
 
   --primitive-green-500: #5bf5c4;
   --primitive-green-400: #8fffd9;
-  --primitive-green-300: #97ecc0;
-  --primitive-green-200: #bef5da;
+  --primitive-green-300: #b0ffe6;
+  --primitive-green-200: #d0fff0;
   --primitive-green-600: #3ad4a5;
-  --primitive-green-700: #1d3f34;
-  --primitive-green-800: #0f2a22;
+  --primitive-green-700: #1d5040;
+  --primitive-green-800: #0f3028;
 
   --primitive-red-500: #ff6b8a;
   --primitive-red-400: #ff9bb0;
-  --primitive-red-600: #c94d5e;
+  --primitive-red-600: #d04a60;
   --primitive-red-700: #7a2a35;
 
   --primitive-blue-500: #6bacff;
-  --primitive-blue-400: #94bbff;
+  --primitive-blue-400: #94c4ff;
   --primitive-blue-600: #4a7dd4;
 
   --primitive-yellow-500: #ffd06b;
@@ -45,13 +45,13 @@
   --color-bg-base: var(--primitive-gray-950);
   --color-bg-surface: var(--primitive-gray-900);
   --color-bg-elevated: var(--primitive-gray-800);
-  --color-bg-overlay: rgba(15, 18, 28, 0.95);
+  --color-bg-overlay: rgba(14, 17, 28, 0.95);
   --color-bg-inset: var(--primitive-gray-850);
 
-  --color-border-default: var(--primitive-gray-600);
-  --color-border-subtle: var(--primitive-gray-700);
-  --color-border-strong: var(--primitive-gray-500);
-  --color-border-accent: rgba(91, 245, 196, 0.35);
+  --color-border-default: rgba(255, 255, 255, 0.06);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+  --color-border-strong: rgba(255, 255, 255, 0.1);
+  --color-border-accent: rgba(91, 245, 196, 0.25);
 
   --color-text-primary: var(--primitive-gray-50);
   --color-text-secondary: var(--primitive-gray-200);
@@ -61,22 +61,18 @@
 
   --color-accent: var(--primitive-green-500);
   --color-accent-hover: var(--primitive-green-400);
-  --color-accent-muted: var(--primitive-green-700);
-  --color-accent-subtle: var(--primitive-green-800);
-  --color-accent-bright: #8fffd9;
-  --color-accent-dim: #3ad4a5;
-  --color-accent-glow: rgba(91, 245, 196, 0.25);
+  --color-accent-muted: rgba(91, 245, 196, 0.15);
+  --color-accent-subtle: rgba(91, 245, 196, 0.07);
   --color-danger: var(--primitive-red-500);
   --color-danger-hover: var(--primitive-red-400);
   --color-danger-muted: var(--primitive-red-700);
-  --color-danger-glow: rgba(255, 107, 138, 0.2);
   --color-warning: var(--primitive-yellow-500);
   --color-info: var(--primitive-blue-500);
   --color-success: var(--primitive-green-500);
 
-  --color-focus-ring: rgba(91, 245, 196, 0.5);
+  --color-focus-ring: rgba(91, 245, 196, 0.4);
 
-  /* Glass effect tokens */
+  /* Glass tokens */
   --glass-bg: rgba(14, 17, 28, 0.55);
   --glass-bg-heavy: rgba(14, 17, 28, 0.72);
   --glass-bg-light: rgba(14, 17, 28, 0.35);
@@ -86,12 +82,14 @@
   --glass-blur: 24px;
   --glass-blur-heavy: 40px;
 
-  /* Shadow tokens */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 12px rgba(91, 245, 196, 0.15);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  /* Shadow tokens — glassmorphic glow variants */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 20px rgba(91, 245, 196, 0.1);
+  --shadow-glow-accent: 0 0 12px rgba(91, 245, 196, 0.25);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-inset-glow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 
   /* Typography */
   --font-ui: 'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif;
@@ -136,9 +134,9 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* Radii */
+  /* Radii — rounder for glassmorphic aesthetic */
   --radius-none: 0;
-  --radius-xs: 2px;
+  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -157,38 +155,37 @@
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-responsive: cubic-bezier(0, 0, 0.2, 1);
-  --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
 
   /* Size/layout tokens */
-  --size-topbar-height: 48px;
-  --size-statusbar-height: 30px;
+  --size-topbar-height: 52px;
+  --size-statusbar-height: 32px;
   --size-tab-height: 36px;
   --size-tab-min-width: 120px;
-  --size-tab-max-width: 220px;
+  --size-tab-max-width: 200px;
   --size-tab-min-width-compact: 100px;
   --size-tab-max-width-compact: 180px;
   --size-icon-button: 34px;
   --size-tab-close: 20px;
-  --size-overlay-top: 66px;
-  --size-topbar-padding-left: 78px;
+  --size-overlay-top: 58px;
+  --size-topbar-padding-left: 80px;
   --size-topbar-padding-left-compact: 76px;
-  --size-dialog-max-width: 560px;
+  --size-dialog-max-width: 460px;
   --size-control-padding-y: 6px;
   --size-control-padding-x: 10px;
-  --size-settings-form-padding: 20px;
+  --size-settings-form-padding: 18px;
   --size-form-label-gap: 6px;
   --size-border-default: 1px;
   --size-focus-outline: 2px;
   --size-focus-offset: 2px;
   --size-focus-glow-width: 3px;
   --size-active-indicator-height: 2px;
-  --blur-shell: 24px;
+  --blur-shell: 14px;
   --scale-press: 0.97;
 
-  /* Component tokens */
+  /* Component tokens — glassmorphic overrides */
   --tab-bg-idle: transparent;
   --tab-bg-active: var(--glass-bg-heavy);
   --tab-bg-hover: var(--glass-highlight);
@@ -197,7 +194,7 @@
   --tab-border-idle: transparent;
   --tab-border-active: var(--glass-border-strong);
   --tab-indicator: var(--color-accent);
-  --tab-close-hover: rgba(255, 107, 138, 0.15);
+  --tab-close-hover: rgba(255, 255, 255, 0.08);
 
   --topbar-bg: var(--glass-bg);
   --topbar-border: var(--glass-border);
@@ -216,8 +213,8 @@
 
   --input-bg: rgba(0, 0, 0, 0.3);
   --input-border: var(--glass-border-strong);
-  --input-border-focus: var(--color-accent);
-  --input-fg: var(--color-text-primary);
+  --input-border-focus: rgba(91, 245, 196, 0.3);
+  --input-fg: #fff;
   --input-placeholder: var(--primitive-gray-500);
 
   --toast-bg: var(--glass-bg-heavy);
@@ -227,13 +224,6 @@
 }
 
 [data-appearance='light'] {
-  --glass-bg: rgba(240, 237, 228, 0.55);
-  --glass-bg-heavy: rgba(240, 237, 228, 0.72);
-  --glass-bg-light: rgba(240, 237, 228, 0.35);
-  --glass-border: rgba(0, 0, 0, 0.06);
-  --glass-border-strong: rgba(0, 0, 0, 0.1);
-  --glass-highlight: rgba(0, 0, 0, 0.04);
-
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);

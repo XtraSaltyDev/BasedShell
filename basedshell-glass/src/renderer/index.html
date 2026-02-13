@@ -13,22 +13,24 @@
     <div id="app-shell">
       <header id="topbar" aria-label="Terminal tabs and controls">
         <div id="tab-strip" role="tablist" aria-label="Terminal tabs"></div>
-
-        <div id="search-inline" class="search-inline" role="search" aria-label="Search terminal output">
-          <input id="search-input" type="text" placeholder="Search..." />
-          <span id="search-counter" class="search-counter" aria-live="polite">Type to search</span>
-          <button id="search-case-sensitive" class="search-chip" type="button" aria-pressed="false" title="Case sensitive">
-            Aa
-          </button>
-          <button id="search-regex" class="search-chip" type="button" aria-pressed="false" title="Regular expression">
-            .*
-          </button>
-          <button id="search-prev" class="search-nav" type="button" title="Previous match (Shift+Enter)"></button>
-          <button id="search-next" class="search-nav" type="button" title="Next match (Enter)"></button>
-          <button id="search-close" class="search-close" type="button" aria-label="Close search"></button>
-        </div>
-
         <div id="topbar-controls">
+          <div id="search-inline" class="search-inline" role="search" aria-label="Search terminal output">
+            <button id="search-prev" class="search-nav" type="button" title="Previous match (Shift+Enter)">
+              Prev
+            </button>
+            <button id="search-next" class="search-nav" type="button" title="Next match (Enter)">
+              Next
+            </button>
+            <input id="search-input" type="text" placeholder="Find in output..." />
+            <span id="search-counter" class="search-counter" aria-live="polite">Type to search</span>
+            <button id="search-case-sensitive" class="search-chip" type="button" aria-pressed="false" title="Case sensitive">
+              Aa
+            </button>
+            <button id="search-regex" class="search-chip" type="button" aria-pressed="false" title="Regular expression">
+              .*
+            </button>
+            <button id="search-close" class="search-close" type="button" aria-label="Close search">Close</button>
+          </div>
           <button
             id="search-button"
             class="icon-button"
@@ -41,24 +43,6 @@
       </header>
 
       <main id="terminal-host" aria-live="polite"></main>
-
-      <div id="quick-actions-dock" class="quick-actions-dock" role="toolbar" aria-label="Quick actions">
-        <button id="quick-palette" class="quick-action-button" type="button" title="Command palette (Cmd/Ctrl+Shift+P)">
-          ⌘K Palette
-        </button>
-        <button id="quick-search" class="quick-action-button" type="button" title="Search terminal output (Cmd/Ctrl+F)">
-          ⌘F Search
-        </button>
-        <button id="quick-settings" class="quick-action-button" type="button" title="Open settings (Cmd/Ctrl+,)">
-          ⌘, Settings
-        </button>
-        <button id="quick-toast" class="quick-action-button" type="button" title="Show test toast">
-          Toast
-        </button>
-        <button id="quick-new-tab" class="quick-action-button" type="button" title="Open new tab (Cmd/Ctrl+T)">
-          + Tab
-        </button>
-      </div>
 
       <footer id="statusbar" aria-label="Terminal status">
         <div id="status-left" class="status-group">
@@ -109,9 +93,9 @@
         <section class="settings-section">
           <h3>Appearance</h3>
 
-          <div class="setting-row">
-            <label>Theme</label>
-            <div id="setting-theme-swatches" class="theme-grid" role="radiogroup" aria-label="Theme">
+          <label>
+            Theme
+            <div id="setting-theme-swatches" class="theme-swatches" role="radiogroup" aria-label="Theme">
               <button type="button" class="theme-swatch" data-theme="system">System</button>
               <button type="button" class="theme-swatch" data-theme="graphite">Graphite</button>
               <button type="button" class="theme-swatch" data-theme="midnight">Midnight</button>
@@ -122,73 +106,64 @@
               <button type="button" class="theme-swatch" data-theme="fog">Fog</button>
             </div>
             <input id="setting-theme" type="hidden" value="system" />
-          </div>
+          </label>
 
-          <div class="setting-row">
-            <label>Appearance</label>
-            <select id="setting-appearance" class="setting-select">
+          <label>
+            Appearance
+            <select id="setting-appearance">
               <option value="system">System</option>
               <option value="dark">Dark</option>
               <option value="light">Light</option>
             </select>
-          </div>
+          </label>
 
-          <div class="setting-row">
-            <label>Opacity</label>
-            <div class="setting-range-wrap">
-              <input id="setting-opacity" type="range" class="setting-range" min="0.6" max="1" step="0.01" />
-              <span class="range-value" data-for="setting-opacity"></span>
-            </div>
-          </div>
-
-          <div class="toggle-row">
-            <span>Vibrancy (macOS)</span>
-            <input id="setting-vibrancy" type="checkbox" class="toggle-checkbox" />
-          </div>
+          <label>
+            Background opacity
+            <input id="setting-opacity" type="range" min="0.6" max="1" step="0.01" />
+          </label>
         </section>
 
         <section class="settings-section">
           <h3>Terminal</h3>
 
-          <div class="setting-row">
-            <label>Font Family</label>
-            <input id="setting-font-family" type="text" class="setting-input" />
-          </div>
+          <label>
+            Font family
+            <input id="setting-font-family" type="text" />
+          </label>
 
-          <div class="setting-row">
-            <label>Font Size</label>
-            <div class="setting-range-wrap">
-              <input id="setting-font-size" type="range" class="setting-range" min="10" max="28" step="1" />
-              <span class="range-value" data-for="setting-font-size"></span>
-            </div>
-          </div>
+          <label>
+            Font size
+            <input id="setting-font-size" type="range" min="10" max="28" step="1" />
+          </label>
 
-          <div class="setting-row">
-            <label>Cursor Style</label>
-            <select id="setting-cursor-style" class="setting-select">
+          <label>
+            Line height
+            <input id="setting-line-height" type="range" min="1" max="2" step="0.05" />
+          </label>
+
+          <label>
+            Cursor style
+            <select id="setting-cursor-style">
               <option value="block">Block</option>
               <option value="bar">Bar</option>
               <option value="underline">Underline</option>
             </select>
-          </div>
+          </label>
 
-          <div class="toggle-row">
-            <span>Cursor Blink</span>
-            <input id="setting-cursor-blink" type="checkbox" class="toggle-checkbox" />
-          </div>
+          <label class="toggle-row">
+            <span>Cursor blink</span>
+            <input id="setting-cursor-blink" type="checkbox" />
+          </label>
 
-          <div class="setting-row">
-            <label>Scrollback Lines</label>
-            <input id="setting-scrollback" type="number" class="setting-input" min="1000" max="200000" step="1000" />
-          </div>
+          <label>
+            Scrollback lines
+            <input id="setting-scrollback" type="number" min="1000" max="200000" step="1000" />
+          </label>
 
-          <div class="setting-row">
-            <label>Line Height</label>
-            <div class="setting-range-wrap">
-              <input id="setting-line-height" type="range" class="setting-range" min="1" max="2" step="0.05" />
-              <span class="range-value" data-for="setting-line-height"></span>
-            </div>
-          </div>
+          <label class="toggle-row">
+            <span>Vibrancy (macOS)</span>
+            <input id="setting-vibrancy" type="checkbox" />
+          </label>
         </section>
       </form>
 

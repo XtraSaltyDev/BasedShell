@@ -1,0 +1,16 @@
+appId: com.basedshell.app
+productName: BasedShell
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - node_modules/**/*
+  - "!node_modules/**/{test,__tests__,tests}/**"
+  - "!node_modules/**/*.{md,ts,map}"
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  darkModeSupport: true

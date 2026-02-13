@@ -87,16 +87,6 @@ export interface ThemeChrome {
   tabBorderIdle: string;
   tabBorderActive: string;
   tabIndicator: string;
-  glassBg: string;
-  glassBgHeavy: string;
-  glassBgLight: string;
-  glassBorder: string;
-  glassBorderStrong: string;
-  glassHighlight: string;
-  accentBright: string;
-  accentDim: string;
-  accentGlow: string;
-  dangerGlow: string;
 }
 
 export interface FullTheme {
