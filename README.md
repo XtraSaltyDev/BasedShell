@@ -1,33 +1,41 @@
 # BasedShell
 
-BasedShell is a production-grade macOS terminal app built with Electron, `node-pty`, and `xterm.js`.
+BasedShell is a keyboard-first macOS terminal app built with Electron, `node-pty`, and `xterm.js`.
 
-## Current Features
+## Highlights
 
-- Native PTY shell sessions using your login shell
-- Multi-tab terminal workflow with keyboard-first controls
-- Reconciled tab strip with smooth enter/exit transitions
-- Tab activity states:
-  - Active output pulse
-  - Unread output indicator on background tabs
-  - Exited tab state indicator
-- Overflow-aware tab strip with dynamic tab width compression
-- Persistent settings (font, cursor, scrollback, opacity, theme, vibrancy)
-- Full UI + terminal theme architecture with built-in themes:
+- Native PTY sessions (login shell) with sanitized runtime environment
+- Multi-tab workflow with activity states (active, unread, exited)
+- Split panes inside each tab (vertical/horizontal, depth cap, keyboard resize/focus)
+- Status HUD with shell/cwd/git/exit context
+- Command palette with fuzzy actions, pins, and recents
+- Inline terminal search with case/regex toggles and next/prev navigation
+- Theme system for terminal + chrome:
   - `graphite`, `midnight`, `solarized-dark`, `paper`, `aurora`, `noir`, `fog`
-  - `system` theme selection support
-- System appearance integration (`dark`/`light` updates)
-- Optional macOS vibrancy mode
-- Search in terminal output
-- Native app menu and standard terminal shortcuts
-- SVG icon system for terminal chrome controls
-- Packaged macOS builds (`dmg`/`zip`) via `electron-builder`
+  - `catppuccin-latte`, `catppuccin-frappe`, `catppuccin-macchiato`, `catppuccin-mocha`
+  - `system` theme selection + system appearance sync
+- Settings support for font, cursor, scrollback, opacity, vibrancy, and prompt style (`system` / `minimal`)
+- Prompt style option for clean `❯` prompt (no user@host), applied per new session
+- Packaged macOS builds via `electron-builder`
 
-## Quick Start
+## Run
+
+Install dependencies:
 
 ```bash
 npm install
+```
+
+Development:
+
+```bash
 npm run dev
+```
+
+Typecheck + DOM contract check:
+
+```bash
+npm run typecheck
 ```
 
 Production run:
@@ -44,23 +52,27 @@ npm run package:mac
 
 ## Key Shortcuts
 
-- `Cmd/Ctrl+T`: new tab
-- `Cmd/Ctrl+W`: close active tab
-- `Cmd/Ctrl+F`: find in terminal
-- `Cmd/Ctrl+,`: open settings
-- `Cmd/Ctrl+K`: clear terminal
-- `Cmd/Ctrl+1..9`: jump to tab
-- `Cmd/Ctrl+/-/0`: terminal font zoom in/out/reset
+- `Cmd/Ctrl+T`: New tab
+- `Cmd/Ctrl+W`: Close active tab
+- `Cmd/Ctrl+F`: Find in terminal
+- `Cmd/Ctrl+Shift+P`: Command palette
+- `Cmd/Ctrl+,`: Open settings
+- `Cmd/Ctrl+K`: Clear terminal
+- `Cmd/Ctrl+Alt+D`: Split vertical
+- `Cmd/Ctrl+Alt+Shift+D`: Split horizontal
+- `Cmd/Ctrl+Alt+Arrow`: Focus split pane
+- `Cmd/Ctrl+Alt+Shift+Arrow`: Resize split pane
 
-## Project Structure
+## Architecture
 
-- `src/main`: Electron main process, IPC, window lifecycle, PTY orchestration
-- `src/preload`: secure renderer bridge API
-- `src/renderer`: UI, tab lifecycle, terminal interactions, themes, icons
-- `src/shared`: cross-process type and theme metadata contracts
+- `src/main`: Electron main process (windows, IPC handlers, PTY session manager, settings persistence)
+- `src/preload`: Typed secure bridge exposed to renderer
+- `src/renderer`: Terminal UI, tabs/panes, command palette, search, toasts, settings drawer
+- `src/shared`: Cross-process contracts, pane model, theme metadata/types
 
 ## Notes
 
-- `node-pty` requires native tooling during install.
+- `node-pty` requires native build tooling.
 - `postinstall` runs `scripts/fix-node-pty-helper.mjs` to ensure `spawn-helper` is executable on macOS.
-- Runtime settings and window state are stored under Electron user data (typically `~/Library/Application Support/BasedShell` on macOS).
+- Runtime settings/window state are stored under `~/Library/Application Support/BasedShell` (macOS default).
+- `output/` is intentionally gitignored for local artifacts.
