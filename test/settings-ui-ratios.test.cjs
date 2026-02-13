@@ -21,6 +21,7 @@ test('settings defaults include split ratio memory keys', () => {
     const settings = service.get();
     assert.equal(settings.ui.lastVerticalSplitRatio, null);
     assert.equal(settings.ui.lastHorizontalSplitRatio, null);
+    assert.equal(settings.promptStyle, 'system');
   });
 });
 
@@ -45,5 +46,59 @@ test('settings sanitize split ratio memory and clamp ranges', () => {
     });
     assert.equal(sanitized.ui.lastVerticalSplitRatio, null);
     assert.equal(sanitized.ui.lastHorizontalSplitRatio, null);
+  });
+});
+
+test('settings sanitize prompt style values', () => {
+  withTempDir((dir) => {
+    const service = new SettingsService(dir);
+    const minimal = service.update({
+      promptStyle: 'minimal'
+    });
+    assert.equal(minimal.promptStyle, 'minimal');
+
+    const sanitized = service.update({
+      promptStyle: /** @type {any} */ ('invalid')
+    });
+    assert.equal(sanitized.promptStyle, 'system');
+  });
+});
+
+test('settings migration defaults prompt style for legacy files', () => {
+  withTempDir((dir) => {
+    const legacySettings = {
+      schemaVersion: 3,
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: 14,
+      lineHeight: 1.35,
+      cursorStyle: 'block',
+      cursorBlink: true,
+      scrollback: 20000,
+      backgroundOpacity: 0.92,
+      theme: 'graphite',
+      appearancePreference: 'system',
+      vibrancy: false,
+      ui: {
+        lastVerticalSplitRatio: null,
+        lastHorizontalSplitRatio: null
+      },
+      profiles: [
+        {
+          id: 'default',
+          name: 'Default Shell',
+          shell: process.env.SHELL || '/bin/zsh',
+          args: ['-l'],
+          cwd: process.env.HOME || '/',
+          env: {}
+        }
+      ],
+      defaultProfileId: 'default'
+    };
+
+    fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify(legacySettings), 'utf8');
+    const service = new SettingsService(dir);
+    const settings = service.get();
+    assert.equal(settings.schemaVersion, 4);
+    assert.equal(settings.promptStyle, 'system');
   });
 });
