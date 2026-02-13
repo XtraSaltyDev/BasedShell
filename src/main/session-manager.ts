@@ -55,7 +55,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function sanitizeRuntimeEnv(input: NodeJS.ProcessEnv): Record<string, string> {
+export function sanitizeRuntimeEnv(input: NodeJS.ProcessEnv): Record<string, string> {
   const out: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(input)) {
