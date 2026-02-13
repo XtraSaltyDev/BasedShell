@@ -2,7 +2,6 @@ node_modules
 .DS_Store
 dist
 release
-output
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*

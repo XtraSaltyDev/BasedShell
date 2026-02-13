@@ -1,0 +1,64 @@
+{
+  "name": "basedshell-glass",
+  "version": "1.0.0",
+  "description": "BasedShell with glassmorphic UI redesign",
+  "main": "dist/main/main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "node scripts/fix-node-pty-helper.mjs",
+    "clean": "rimraf dist",
+    "build": "npm run clean && npm run build:main && npm run build:renderer",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "vite build",
+    "check:dom-contract": "node scripts/check-dom-contract.mjs",
+    "typecheck": "npm run check:dom-contract && tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "test:unit": "npm run build:main && node --test test/**/*.test.cjs",
+    "dev": "npm run build:main && concurrently -k \"npm:watch:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "watch:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on dist/main/main.js tcp:5173 && cross-env ELECTRON_RENDERER_URL=http://localhost:5173 electronmon .",
+    "start": "npm run build && electron .",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package": "npm run package:mac"
+  },
+  "build": {
+    "appId": "com.basedshell-glass.app",
+    "productName": "BasedShell Glass",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    }
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-search": "^0.15.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "node-pty": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^31.7.7",
+    "electron-builder": "^25.1.8",
+    "electronmon": "^2.0.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "wait-on": "^8.0.1"
+  }
+}

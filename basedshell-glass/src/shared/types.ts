@@ -18,7 +18,6 @@ export type AppearanceMode = 'light' | 'dark';
 export type AppearancePreference = 'system' | AppearanceMode;
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
-export type PromptStyle = 'system' | 'minimal';
 
 export interface TerminalAnsiTheme {
   background: string;
@@ -88,16 +87,6 @@ export interface ThemeChrome {
   tabBorderIdle: string;
   tabBorderActive: string;
   tabIndicator: string;
-  glassBg: string;
-  glassBgHeavy: string;
-  glassBgLight: string;
-  glassBorder: string;
-  glassBorderStrong: string;
-  glassHighlight: string;
-  accentBright: string;
-  accentDim: string;
-  accentGlow: string;
-  dangerGlow: string;
 }
 
 export interface FullTheme {
@@ -134,7 +123,6 @@ export interface AppSettings {
   theme: ThemeSelection;
   appearancePreference: AppearancePreference;
   vibrancy: boolean;
-  promptStyle: PromptStyle;
   ui: UiSettings;
   profiles: TerminalProfile[];
   defaultProfileId: string;

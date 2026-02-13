@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { BrowserWindow } from 'electron';
@@ -74,13 +73,7 @@ function sanitizeRuntimeEnv(input: NodeJS.ProcessEnv): Record<string, string> {
     'npm_node_execpath',
     'npm_command',
     'npm_lifecycle_event',
-    'npm_lifecycle_script',
-    // Prevent Apple shell session restore noise/leakage in embedded PTYs.
-    'TERM_SESSION_ID',
-    'TERM_PROGRAM',
-    'TERM_PROGRAM_VERSION',
-    'SHELL_SESSION_DIR',
-    'SHELL_SESSION_HISTORY'
+    'npm_lifecycle_script'
   ]);
 
   for (const key of Object.keys(out)) {
@@ -89,48 +82,12 @@ function sanitizeRuntimeEnv(input: NodeJS.ProcessEnv): Record<string, string> {
       continue;
     }
 
-    if (key.startsWith('npm_package_') || key.startsWith('npm_config_') || key.startsWith('SHELL_SESSION_')) {
+    if (key.startsWith('npm_package_') || key.startsWith('npm_config_')) {
       delete out[key];
     }
   }
 
   return out;
-}
-
-function ensureZshBootstrapDir(): string | null {
-  try {
-    const dir = path.join(os.tmpdir(), 'basedshell-zsh-bootstrap');
-    fs.mkdirSync(dir, { recursive: true });
-
-    const zshenv = '[[ -r "$HOME/.zshenv" ]] && source "$HOME/.zshenv"\n';
-    const zprofile = '[[ -r "$HOME/.zprofile" ]] && source "$HOME/.zprofile"\n';
-    const zlogin = '[[ -r "$HOME/.zlogin" ]] && source "$HOME/.zlogin"\n';
-    const zshrc = [
-      '[[ -r "$HOME/.zshrc" ]] && source "$HOME/.zshrc"',
-      '_basedshell_minimal_prompt() {',
-      "  PROMPT='%F{49}❯%f '",
-      '  PS1="$PROMPT"',
-      "  RPROMPT=''",
-      "  PROMPT2='%F{49}❯%f '",
-      '}',
-      '_basedshell_minimal_prompt',
-      'if typeset -f add-zsh-hook >/dev/null 2>&1; then',
-      '  add-zsh-hook precmd _basedshell_minimal_prompt',
-      'else',
-      '  precmd_functions=(_basedshell_minimal_prompt ${precmd_functions:#_basedshell_minimal_prompt})',
-      'fi',
-      ''
-    ].join('\n');
-
-    fs.writeFileSync(path.join(dir, '.zshenv'), zshenv, 'utf8');
-    fs.writeFileSync(path.join(dir, '.zprofile'), zprofile, 'utf8');
-    fs.writeFileSync(path.join(dir, '.zlogin'), zlogin, 'utf8');
-    fs.writeFileSync(path.join(dir, '.zshrc'), zshrc, 'utf8');
-
-    return dir;
-  } catch {
-    return null;
-  }
 }
 
 function ensureSpawnHelperExecutable(): void {
@@ -315,26 +272,12 @@ export class SessionManager {
     const desiredCwd = request.cwd?.trim() || profile.cwd;
     const cwd = desiredCwd && fs.existsSync(desiredCwd) ? desiredCwd : profile.cwd;
 
-    const env: Record<string, string> = {
+    const env = {
       ...sanitizeRuntimeEnv(process.env),
       ...profile.env,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor'
     };
-
-    const appSettings = this.settings.get();
-    const shellName = path.basename(profile.shell);
-    if (shellName === 'zsh' && appSettings.promptStyle === 'minimal') {
-      const zdotdir = ensureZshBootstrapDir();
-      if (zdotdir) {
-        env.ZDOTDIR = zdotdir;
-      } else {
-        env.PROMPT = '%F{49}❯%f ';
-        env.PS1 = '%F{49}❯%f ';
-        env.RPROMPT = '';
-        env.PROMPT2 = '%F{49}❯%f ';
-      }
-    }
 
     const proc = pty.spawn(profile.shell, profile.args, {
       name: 'xterm-256color',

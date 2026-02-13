@@ -22,6 +22,7 @@ interface TerminalAPI {
   getGitStatus: (cwd: string) => Promise<GitStatus | null>;
   getSettings: () => Promise<AppSettings>;
   updateSettings: (patch: SettingsPatch) => Promise<AppSettings>;
+  openSettingsWindow: () => Promise<void>;
   createSession: (request: CreateSessionRequest) => Promise<SessionSummary>;
   writeToSession: (request: SessionWriteRequest) => void;
   resizeSession: (request: SessionResizeRequest) => void;

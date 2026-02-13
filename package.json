@@ -1,46 +1,21 @@
 {
   "name": "basedshell",
   "version": "1.0.0",
-  "description": "Production-grade macOS terminal built with Electron, node-pty, and xterm.js",
+  "description": "A modern terminal emulator with glassmorphic UI",
   "main": "dist/main/main.js",
-  "author": "",
-  "license": "MIT",
   "scripts": {
     "postinstall": "node scripts/fix-node-pty-helper.mjs",
     "clean": "rimraf dist",
-    "build": "npm run clean && npm run build:main && npm run build:renderer",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
+    "build": "npm run clean && npm run build:main && npm run build:renderer",
+    "dev:renderer": "vite --config vite.config.ts",
+    "dev:main": "electronmon .",
+    "dev": "concurrently -n renderer,main \"npm run dev:renderer\" \"wait-on tcp:5173 && cross-env NODE_ENV=development npm run dev:main\"",
     "check:dom-contract": "node scripts/check-dom-contract.mjs",
     "typecheck": "npm run check:dom-contract && tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "test:unit": "npm run build:main && node --test test/**/*.test.cjs",
-    "dev": "npm run build:main && concurrently -k \"npm:watch:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
-    "watch:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
-    "dev:renderer": "vite",
-    "dev:electron": "wait-on dist/main/main.js tcp:5173 && cross-env ELECTRON_RENDERER_URL=http://localhost:5173 electronmon .",
-    "start": "npm run build && electron .",
-    "package:mac": "npm run build && electron-builder --mac",
-    "package": "npm run package:mac"
-  },
-  "build": {
-    "appId": "com.basedshell.app",
-    "productName": "BasedShell",
-    "asar": true,
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "node_modules/**/*",
-      "package.json"
-    ],
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    }
+    "start": "electron .",
+    "package:mac": "npm run build && electron-builder --mac --config electron-builder.yml"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
@@ -50,15 +25,15 @@
     "node-pty": "^1.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
-    "concurrently": "^9.1.0",
+    "@types/node": "^20.11.0",
+    "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^31.7.7",
-    "electron-builder": "^25.1.8",
-    "electronmon": "^2.0.3",
-    "rimraf": "^6.0.1",
+    "electron-builder": "^24.13.3",
+    "electronmon": "^2.0.2",
+    "rimraf": "^5.0.5",
     "typescript": "^5.7.2",
     "vite": "^5.4.11",
-    "wait-on": "^8.0.1"
+    "wait-on": "^7.2.0"
   }
 }

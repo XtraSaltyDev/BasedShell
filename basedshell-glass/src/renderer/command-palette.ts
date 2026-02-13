@@ -3,7 +3,6 @@ export interface CommandPaletteAction {
   title: string;
   description?: string;
   shortcut?: string;
-  icon?: string;
   keywords?: string[];
   run: () => void | Promise<void>;
 }
@@ -26,7 +25,6 @@ interface RankedAction {
 const PINS_STORAGE_KEY = 'basedshell.palette.pins.v1';
 const RECENTS_STORAGE_KEY = 'basedshell.palette.recents.v1';
 const MAX_RECENTS = 20;
-const IS_MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 function normalize(text: string): string {
   return text.trim().toLowerCase();
@@ -86,22 +84,6 @@ function writeStoredList(key: string, values: string[]): void {
   } catch {
     // Ignore storage failures (private mode, quota errors).
   }
-}
-
-function shortcutParts(shortcut: string): string[] {
-  return shortcut.split('+').map((part) => {
-    const token = part.trim();
-    if (token === 'Cmd/Ctrl') {
-      return IS_MAC ? '\u2318' : 'Ctrl';
-    }
-    if (IS_MAC && token === 'Alt') {
-      return '\u2325';
-    }
-    if (IS_MAC && token === 'Shift') {
-      return '\u21e7';
-    }
-    return token;
-  });
 }
 
 export interface CommandPaletteController {
@@ -292,13 +274,6 @@ export function createCommandPalette(options: CommandPaletteOptions): CommandPal
       button.className = 'palette-action';
       button.dataset.actionId = ranked.action.id;
 
-      if (ranked.action.icon) {
-        const actionIcon = document.createElement('span');
-        actionIcon.className = 'palette-action-icon';
-        actionIcon.textContent = ranked.action.icon;
-        button.appendChild(actionIcon);
-      }
-
       const text = document.createElement('span');
       text.className = 'palette-text';
       const title = document.createElement('span');
@@ -324,12 +299,7 @@ export function createCommandPalette(options: CommandPaletteOptions): CommandPal
       if (ranked.action.shortcut) {
         const shortcut = document.createElement('span');
         shortcut.className = 'palette-shortcut';
-        const parts = shortcutParts(ranked.action.shortcut);
-        for (const part of parts) {
-          const kbd = document.createElement('kbd');
-          kbd.textContent = part;
-          shortcut.appendChild(kbd);
-        }
+        shortcut.textContent = ranked.action.shortcut;
         right.append(shortcut);
       }
 

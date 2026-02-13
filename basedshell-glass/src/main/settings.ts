@@ -4,7 +4,6 @@ import type {
   AppSettings,
   AppearancePreference,
   CursorStyle,
-  PromptStyle,
   SettingsPatch,
   TerminalProfile,
   ThemeSelection,
@@ -28,8 +27,7 @@ const THEMES = new Set<ThemeSelection>([
 ]);
 const APPEARANCE_PREFERENCES = new Set<AppearancePreference>(['system', 'dark', 'light']);
 const CURSORS = new Set<CursorStyle>(['block', 'underline', 'bar']);
-const PROMPT_STYLES = new Set<PromptStyle>(['system', 'minimal']);
-const SETTINGS_SCHEMA_VERSION = 4;
+const SETTINGS_SCHEMA_VERSION = 3;
 const LEGACY_THEME_ALIASES: Record<string, ThemeSelection> = {
   catppuccin: 'catppuccin-mocha'
 };
@@ -117,7 +115,6 @@ export class SettingsService {
       theme: 'graphite',
       appearancePreference: 'system',
       vibrancy: false,
-      promptStyle: 'system',
       ui: {
         lastVerticalSplitRatio: null,
         lastHorizontalSplitRatio: null
@@ -243,7 +240,6 @@ export class SettingsService {
         ? candidate.appearancePreference
         : 'system',
       vibrancy: Boolean(candidate.vibrancy),
-      promptStyle: PROMPT_STYLES.has(candidate.promptStyle) ? candidate.promptStyle : 'system',
       ui: sanitizeUiSettings(candidate.ui),
       profiles: dedupedProfiles,
       defaultProfileId

@@ -35,7 +35,6 @@ const dom = {
   opacity: document.querySelector<HTMLInputElement>('#setting-opacity'),
   appearance: document.querySelector<HTMLSelectElement>('#setting-appearance'),
   cursorStyle: document.querySelector<HTMLSelectElement>('#setting-cursor-style'),
-  promptStyle: document.querySelector<HTMLSelectElement>('#setting-prompt-style'),
   cursorBlink: document.querySelector<HTMLInputElement>('#setting-cursor-blink'),
   vibrancy: document.querySelector<HTMLInputElement>('#setting-vibrancy')
 };
@@ -65,7 +64,6 @@ const ui = {
   opacity: assertDom(dom.opacity, '#setting-opacity'),
   appearance: assertDom(dom.appearance, '#setting-appearance'),
   cursorStyle: assertDom(dom.cursorStyle, '#setting-cursor-style'),
-  promptStyle: assertDom(dom.promptStyle, '#setting-prompt-style'),
   cursorBlink: assertDom(dom.cursorBlink, '#setting-cursor-blink'),
   vibrancy: assertDom(dom.vibrancy, '#setting-vibrancy')
 };
@@ -130,7 +128,6 @@ function patchFromForm(): SettingsPatch {
     theme: ui.themeInput.value as ThemeSelection,
     appearancePreference: ui.appearance.value as AppSettings['appearancePreference'],
     cursorStyle: ui.cursorStyle.value as CursorStyle,
-    promptStyle: ui.promptStyle.value as AppSettings['promptStyle'],
     cursorBlink: ui.cursorBlink.checked,
     vibrancy: ui.vibrancy.checked
   };
@@ -166,7 +163,6 @@ function syncFormFromState(source: AppSettings): void {
   ui.themeInput.value = source.theme;
   ui.appearance.value = source.appearancePreference;
   ui.cursorStyle.value = source.cursorStyle;
-  ui.promptStyle.value = source.promptStyle;
   ui.cursorBlink.checked = source.cursorBlink;
   ui.vibrancy.checked = source.vibrancy;
 

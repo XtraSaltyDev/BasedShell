@@ -37,11 +37,6 @@ export function createToastManager(container: HTMLElement, announcer: HTMLElemen
       toast.dataset.toastId = String(sequence);
       toast.tabIndex = 0;
 
-      const iconEl = document.createElement('span');
-      iconEl.className = 'toast-icon';
-      iconEl.setAttribute('aria-hidden', 'true');
-      iconEl.innerHTML = icon('dot', 13);
-
       const body = document.createElement('span');
       body.className = 'toast-message';
       body.textContent = message;
@@ -62,7 +57,7 @@ export function createToastManager(container: HTMLElement, announcer: HTMLElemen
         }
       });
 
-      toast.append(iconEl, body, close);
+      toast.append(body, close);
       container.prepend(toast);
       announcer.textContent = message;
 

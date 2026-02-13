@@ -35,6 +35,7 @@ const api = {
   getGitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke('git:status', cwd),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: SettingsPatch): Promise<AppSettings> => ipcRenderer.invoke('settings:update', patch),
+  openSettingsWindow: (): Promise<void> => ipcRenderer.invoke('settings:open-window'),
   createSession: (request: CreateSessionRequest): Promise<SessionSummary> =>
     ipcRenderer.invoke('terminal:create-session', request),
   writeToSession: (request: SessionWriteRequest): void => ipcRenderer.send('terminal:write', request),

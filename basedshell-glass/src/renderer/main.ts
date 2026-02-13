@@ -102,7 +102,6 @@ interface SettingsUi {
   settingTheme: HTMLInputElement;
   settingAppearance: HTMLSelectElement;
   settingCursorStyle: HTMLSelectElement;
-  settingPromptStyle: HTMLSelectElement;
   settingCursorBlink: HTMLInputElement;
   settingVibrancy: HTMLInputElement;
 }
@@ -114,11 +113,6 @@ const dom = {
   searchButton: document.querySelector<HTMLButtonElement>('#search-button'),
   searchInline: document.querySelector<HTMLDivElement>('#search-inline'),
   terminalHost: document.querySelector<HTMLDivElement>('#terminal-host'),
-  quickPalette: document.querySelector<HTMLButtonElement>('#quick-palette'),
-  quickSearch: document.querySelector<HTMLButtonElement>('#quick-search'),
-  quickSettings: document.querySelector<HTMLButtonElement>('#quick-settings'),
-  quickToast: document.querySelector<HTMLButtonElement>('#quick-toast'),
-  quickNewTab: document.querySelector<HTMLButtonElement>('#quick-new-tab'),
   statusLeft: document.querySelector<HTMLDivElement>('#status-left'),
   statusRight: document.querySelector<HTMLDivElement>('#status-right'),
   statusShell: document.querySelector<HTMLButtonElement>('#status-shell'),
@@ -155,7 +149,6 @@ const dom = {
   settingTheme: document.querySelector<HTMLInputElement>('#setting-theme'),
   settingAppearance: document.querySelector<HTMLSelectElement>('#setting-appearance'),
   settingCursorStyle: document.querySelector<HTMLSelectElement>('#setting-cursor-style'),
-  settingPromptStyle: document.querySelector<HTMLSelectElement>('#setting-prompt-style'),
   settingCursorBlink: document.querySelector<HTMLInputElement>('#setting-cursor-blink'),
   settingVibrancy: document.querySelector<HTMLInputElement>('#setting-vibrancy')
 };
@@ -203,7 +196,6 @@ function bindSettingsUi(): SettingsUi | null {
     ['settingTheme', dom.settingTheme],
     ['settingAppearance', dom.settingAppearance],
     ['settingCursorStyle', dom.settingCursorStyle],
-    ['settingPromptStyle', dom.settingPromptStyle],
     ['settingCursorBlink', dom.settingCursorBlink],
     ['settingVibrancy', dom.settingVibrancy]
   ];
@@ -239,7 +231,6 @@ function bindSettingsUi(): SettingsUi | null {
     settingTheme: dom.settingTheme as HTMLInputElement,
     settingAppearance: dom.settingAppearance as HTMLSelectElement,
     settingCursorStyle: dom.settingCursorStyle as HTMLSelectElement,
-    settingPromptStyle: dom.settingPromptStyle as HTMLSelectElement,
     settingCursorBlink: dom.settingCursorBlink as HTMLInputElement,
     settingVibrancy: dom.settingVibrancy as HTMLInputElement
   };
@@ -252,11 +243,6 @@ const ui = {
   searchButton: assertDom(dom.searchButton, '#search-button'),
   searchInline: assertDom(dom.searchInline, '#search-inline'),
   terminalHost: assertDom(dom.terminalHost, '#terminal-host'),
-  quickPalette: assertDom(dom.quickPalette, '#quick-palette'),
-  quickSearch: assertDom(dom.quickSearch, '#quick-search'),
-  quickSettings: assertDom(dom.quickSettings, '#quick-settings'),
-  quickToast: assertDom(dom.quickToast, '#quick-toast'),
-  quickNewTab: assertDom(dom.quickNewTab, '#quick-new-tab'),
   statusLeft: assertDom(dom.statusLeft, '#status-left'),
   statusRight: assertDom(dom.statusRight, '#status-right'),
   statusShell: assertDom(dom.statusShell, '#status-shell'),
@@ -583,7 +569,6 @@ function updateTabElement(element: HTMLButtonElement, tab: TabState, isActive: b
       dot.classList.add('unread');
     }
   }
-
 }
 
 function startTabExitAnimation(tabId: string, element: HTMLElement): void {
@@ -702,25 +687,8 @@ function formatDuration(durationMs: number): string {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-function setStatusSegmentState(button: HTMLButtonElement, state: 'idle' | 'success' | 'warning' | 'danger' | 'info'): void {
+function setStatusSegmentState(button: HTMLButtonElement, state: 'idle' | 'success' | 'warning' | 'danger'): void {
   button.dataset.state = state;
-}
-
-function setSegmentContent(button: HTMLButtonElement, prefix: 'dot' | 'icon' | 'none', label: string): void {
-  button.textContent = '';
-  if (prefix === 'dot') {
-    const dot = document.createElement('span');
-    dot.className = 'status-dot';
-    button.appendChild(dot);
-  } else if (prefix === 'icon') {
-    const ico = document.createElement('span');
-    ico.className = 'status-icon';
-    ico.textContent = '\u2387';
-    button.appendChild(ico);
-  }
-  const span = document.createElement('span');
-  span.textContent = label;
-  button.appendChild(span);
 }
 
 async function refreshActiveGitStatus(force = false): Promise<void> {
@@ -819,61 +787,48 @@ function updateStatus(): void {
   const tab = activeTab();
   const pane = activePaneForTab(tab);
   if (!tab || !pane) {
-    setSegmentContent(ui.statusShell, 'dot', 'No Session');
+    ui.statusShell.textContent = 'No Session';
     ui.statusShell.title = 'No active session';
     setStatusSegmentState(ui.statusShell, 'idle');
 
-    setSegmentContent(ui.statusCwd, 'dot', 'Path —');
+    ui.statusCwd.textContent = 'Path —';
     ui.statusCwd.title = 'No active session path';
     setStatusSegmentState(ui.statusCwd, 'idle');
 
-    setSegmentContent(ui.statusGit, 'icon', 'Git —');
+    ui.statusGit.textContent = 'Git —';
     ui.statusGit.title = 'No active repository';
     setStatusSegmentState(ui.statusGit, 'idle');
 
-    setSegmentContent(ui.statusContext, 'none', 'Exit —');
+    ui.statusContext.textContent = 'Exit —';
     ui.statusContext.title = 'No command context available';
     setStatusSegmentState(ui.statusContext, 'idle');
 
-    setSegmentContent(ui.statusTabs, 'none', '0 tabs');
+    ui.statusTabs.textContent = '0 tabs';
     ui.statusTabs.title = 'No open tabs';
     setStatusSegmentState(ui.statusTabs, 'idle');
 
-    setSegmentContent(ui.statusTheme, 'none', resolvedTheme.themeName);
+    ui.statusTheme.textContent = resolvedTheme.themeName;
     ui.statusTheme.title = 'Theme';
     setStatusSegmentState(ui.statusTheme, 'idle');
     return;
   }
 
   const shellLabel = shellName(pane.shell);
-  setSegmentContent(ui.statusShell, 'dot', pane.exited ? `${shellLabel} (Exited)` : shellLabel);
-  ui.statusShell.title = `Shell: ${pane.shell}${pane.exited ? ' (exited)' : ''}. Click to open settings.`;
-  setStatusSegmentState(ui.statusShell, pane.exited ? 'warning' : 'success');
+  ui.statusShell.textContent = pane.exited ? `${shellLabel} (Exited)` : `${shellLabel} · ${pane.pid}`;
+  ui.statusShell.title = `Shell: ${pane.shell}${pane.exited ? ' (exited)' : ''}. Click to open settings window.`;
+  setStatusSegmentState(ui.statusShell, pane.exited ? 'warning' : 'idle');
 
-  setSegmentContent(ui.statusCwd, 'dot', truncateMiddle(toTildePath(pane.cwd), 34));
+  ui.statusCwd.textContent = truncateMiddle(pane.cwd, 34);
   ui.statusCwd.title = `Working directory: ${pane.cwd}. Click to copy path.`;
-  setStatusSegmentState(ui.statusCwd, 'info');
+  setStatusSegmentState(ui.statusCwd, 'idle');
 
   const git = gitStatusByCwd.get(pane.cwd);
   if (git) {
-    ui.statusGit.textContent = '';
-    const gitIcon = document.createElement('span');
-    gitIcon.className = 'status-icon';
-    gitIcon.textContent = '\u2387';
-    ui.statusGit.appendChild(gitIcon);
-    const branchSpan = document.createElement('span');
-    branchSpan.textContent = git.branch;
-    ui.statusGit.appendChild(branchSpan);
-    if (git.dirty) {
-      const dirtySpan = document.createElement('span');
-      dirtySpan.style.color = 'var(--color-warning)';
-      dirtySpan.textContent = '*';
-      ui.statusGit.appendChild(dirtySpan);
-    }
+    ui.statusGit.textContent = git.dirty ? `${git.branch} *` : git.branch;
     ui.statusGit.title = `Git branch: ${git.branch}${git.dirty ? ' (dirty)' : ' (clean)'} · Click to refresh`;
     setStatusSegmentState(ui.statusGit, git.dirty ? 'warning' : 'success');
   } else {
-    setSegmentContent(ui.statusGit, 'icon', 'No Repo');
+    ui.statusGit.textContent = 'No Repo';
     ui.statusGit.title = `No git repository detected for ${pane.cwd}. Click to refresh.`;
     setStatusSegmentState(ui.statusGit, 'idle');
   }
@@ -883,22 +838,22 @@ function updateStatus(): void {
       ? { exitCode: pane.lastExitCode, durationMs: pane.lastExitDurationMs }
       : lastCommandContext;
   if (context) {
-    setSegmentContent(ui.statusContext, 'none', `\u2713 ${context.exitCode} \u00b7 ${formatDuration(context.durationMs)}`);
+    ui.statusContext.textContent = `Exit ${context.exitCode} · ${formatDuration(context.durationMs)}`;
     ui.statusContext.title = `Last process exit code ${context.exitCode} after ${formatDuration(context.durationMs)}.`;
     setStatusSegmentState(ui.statusContext, context.exitCode === 0 ? 'success' : 'danger');
   } else {
-    setSegmentContent(ui.statusContext, 'none', 'Exit —');
+    ui.statusContext.textContent = 'Exit —';
     ui.statusContext.title = 'No command context available yet.';
     setStatusSegmentState(ui.statusContext, 'idle');
   }
 
-  setSegmentContent(ui.statusTabs, 'none', `${tabOrder.length} tab${tabOrder.length === 1 ? '' : 's'}`);
+  ui.statusTabs.textContent = `${tabOrder.length} tab${tabOrder.length === 1 ? '' : 's'}`;
   ui.statusTabs.title = `${tabOrder.length} open tab${tabOrder.length === 1 ? '' : 's'}.`;
   setStatusSegmentState(ui.statusTabs, 'idle');
 
   const themeLabel =
     settings.theme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName;
-  setSegmentContent(ui.statusTheme, 'none', themeLabel);
+  ui.statusTheme.textContent = themeLabel;
   ui.statusTheme.title = `Theme: ${themeLabel}. Click to cycle themes.`;
   setStatusSegmentState(ui.statusTheme, 'idle');
 }
@@ -1241,7 +1196,7 @@ async function createPaneForTab(tabId: string, cwd?: string): Promise<PaneState 
 
   const paneId = `pane-${summary.sessionId}`;
   const wrapper = document.createElement('div');
-  wrapper.className = 'pane-shell';
+  wrapper.className = 'pane-leaf';
   wrapper.tabIndex = -1;
   wrapper.dataset.paneId = paneId;
 
@@ -1810,16 +1765,6 @@ function setRangeFill(input: HTMLInputElement): void {
   const ratio = max <= min ? 0 : (value - min) / (max - min);
   const percent = `${Math.round(ratio * 100)}%`;
   input.style.setProperty('--fill-percent', percent);
-
-  const rangeValue = input.parentElement?.querySelector<HTMLSpanElement>('.range-value');
-  if (rangeValue) {
-    const step = Number(input.step || 1);
-    if (step < 1) {
-      rangeValue.textContent = String(value);
-    } else {
-      rangeValue.textContent = `${Math.round(value)}`;
-    }
-  }
 }
 
 function syncThemeSwatches(): void {
@@ -1860,7 +1805,6 @@ function syncSettingsFormFromState(source: AppSettings): void {
   settingsUi.settingTheme.value = source.theme;
   settingsUi.settingAppearance.value = source.appearancePreference;
   settingsUi.settingCursorStyle.value = source.cursorStyle;
-  settingsUi.settingPromptStyle.value = source.promptStyle;
   settingsUi.settingCursorBlink.checked = source.cursorBlink;
   settingsUi.settingVibrancy.checked = source.vibrancy;
 
@@ -1884,7 +1828,6 @@ function settingsPatchFromForm(): SettingsPatch {
     theme: settingsUi.settingTheme.value as ThemeSelection,
     appearancePreference: settingsUi.settingAppearance.value as AppSettings['appearancePreference'],
     cursorStyle: settingsUi.settingCursorStyle.value as CursorStyle,
-    promptStyle: settingsUi.settingPromptStyle.value as AppSettings['promptStyle'],
     cursorBlink: settingsUi.settingCursorBlink.checked,
     vibrancy: settingsUi.settingVibrancy.checked
   };
@@ -1916,27 +1859,8 @@ function closeSettingsPanel(discardPreview: boolean): void {
 }
 
 function openSettings(): void {
-  if (!settingsUi) {
-    return;
-  }
-
-  if (isSettingsOpen()) {
-    settingsUi.settingsPanel.querySelector<HTMLElement>('.settings-form')?.focus();
-    return;
-  }
-
-  settingsPreviewBaseline = { ...settings, ui: { ...settings.ui }, profiles: [...settings.profiles] };
-  syncSettingsFormFromState(settings);
-  syncThemeSwatches();
-
-  settingsUi.settingsScrim.classList.remove('hidden');
-  settingsUi.settingsPanel.setAttribute('aria-hidden', 'false');
-  ui.terminalHost.classList.add('panel-open');
-
-  requestAnimationFrame(() => {
-    settingsUi.settingsPanel.classList.add('open');
-    settingsUi.settingsScrim.classList.add('open');
-    focusSelectedThemeSwatch();
+  void window.terminalAPI.openSettingsWindow().catch(() => {
+    toasts.show('Unable to open settings window.', 'error', 0);
   });
 }
 
@@ -2026,8 +1950,7 @@ function commandPaletteActions(): CommandPaletteAction[] {
     {
       id: 'new-tab',
       title: 'New Tab',
-      description: 'Open a new terminal tab',
-      icon: '+',
+      description: 'Create a new terminal tab',
       shortcut: 'Cmd/Ctrl+T',
       keywords: ['tab', 'create', 'terminal'],
       run: () => void createTab()
@@ -2036,7 +1959,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'close-tab',
       title: 'Close Active Tab',
       description: 'Close the current terminal tab',
-      icon: '\u00d7',
       shortcut: 'Cmd/Ctrl+W',
       keywords: ['tab', 'close'],
       run: () => {
@@ -2049,7 +1971,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'close-pane',
       title: 'Close Active Pane',
       description: 'Close the focused pane and collapse the split',
-      icon: '\u00d7',
       keywords: ['pane', 'close', 'split'],
       run: () => {
         const tab = activeTab();
@@ -2062,8 +1983,7 @@ function commandPaletteActions(): CommandPaletteAction[] {
     {
       id: 'split-vertical',
       title: 'Split Vertical',
-      description: 'Split the current pane vertically',
-      icon: '\u2862',
+      description: 'Split active pane left/right',
       shortcut: 'Cmd/Ctrl+Alt+D',
       keywords: ['split', 'pane', 'vertical'],
       run: () => void splitActivePaneVertical()
@@ -2071,8 +1991,7 @@ function commandPaletteActions(): CommandPaletteAction[] {
     {
       id: 'split-horizontal',
       title: 'Split Horizontal',
-      description: 'Split the current pane horizontally',
-      icon: '\u2863',
+      description: 'Split active pane top/bottom',
       shortcut: 'Cmd/Ctrl+Alt+Shift+D',
       keywords: ['split', 'pane', 'horizontal'],
       run: () => void splitActivePaneHorizontal()
@@ -2081,7 +2000,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'focus-pane-left',
       title: 'Focus Pane Left',
       description: 'Move focus to the pane on the left',
-      icon: '\u2190',
       shortcut: 'Cmd/Ctrl+Alt+Left',
       keywords: ['pane', 'focus', 'left'],
       run: () => focusPaneToward('left')
@@ -2090,7 +2008,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'focus-pane-right',
       title: 'Focus Pane Right',
       description: 'Move focus to the pane on the right',
-      icon: '\u2192',
       shortcut: 'Cmd/Ctrl+Alt+Right',
       keywords: ['pane', 'focus', 'right'],
       run: () => focusPaneToward('right')
@@ -2099,7 +2016,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'focus-pane-up',
       title: 'Focus Pane Up',
       description: 'Move focus to the pane above',
-      icon: '\u2191',
       shortcut: 'Cmd/Ctrl+Alt+Up',
       keywords: ['pane', 'focus', 'up'],
       run: () => focusPaneToward('up')
@@ -2108,7 +2024,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'focus-pane-down',
       title: 'Focus Pane Down',
       description: 'Move focus to the pane below',
-      icon: '\u2193',
       shortcut: 'Cmd/Ctrl+Alt+Down',
       keywords: ['pane', 'focus', 'down'],
       run: () => focusPaneToward('down')
@@ -2117,7 +2032,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'resize-pane-left',
       title: 'Resize Pane Left',
       description: 'Resize active pane toward the left',
-      icon: '\u21e4',
       shortcut: 'Cmd/Ctrl+Alt+Shift+Left',
       keywords: ['pane', 'resize', 'left'],
       run: () => resizePaneToward('left')
@@ -2126,7 +2040,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'resize-pane-right',
       title: 'Resize Pane Right',
       description: 'Resize active pane toward the right',
-      icon: '\u21e5',
       shortcut: 'Cmd/Ctrl+Alt+Shift+Right',
       keywords: ['pane', 'resize', 'right'],
       run: () => resizePaneToward('right')
@@ -2135,7 +2048,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'resize-pane-up',
       title: 'Resize Pane Up',
       description: 'Resize active pane toward the top',
-      icon: '\u21e4',
       shortcut: 'Cmd/Ctrl+Alt+Shift+Up',
       keywords: ['pane', 'resize', 'up'],
       run: () => resizePaneToward('up')
@@ -2144,7 +2056,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'resize-pane-down',
       title: 'Resize Pane Down',
       description: 'Resize active pane toward the bottom',
-      icon: '\u21e5',
       shortcut: 'Cmd/Ctrl+Alt+Shift+Down',
       keywords: ['pane', 'resize', 'down'],
       run: () => resizePaneToward('down')
@@ -2153,7 +2064,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'next-tab',
       title: 'Next Tab',
       description: 'Move to the next tab',
-      icon: '\u21e2',
       keywords: ['tab', 'next'],
       run: nextTab
     },
@@ -2161,7 +2071,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'previous-tab',
       title: 'Previous Tab',
       description: 'Move to the previous tab',
-      icon: '\u21e0',
       keywords: ['tab', 'previous'],
       run: previousTab
     },
@@ -2169,7 +2078,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'search',
       title: 'Find in Terminal',
       description: 'Open terminal search',
-      icon: '\u2315',
       shortcut: 'Cmd/Ctrl+F',
       keywords: ['search', 'find', 'output'],
       run: openSearch
@@ -2177,8 +2085,7 @@ function commandPaletteActions(): CommandPaletteAction[] {
     {
       id: 'settings',
       title: 'Open Settings',
-      description: 'Open settings',
-      icon: '\u2699',
+      description: 'Open the settings window',
       shortcut: 'Cmd/Ctrl+,',
       keywords: ['settings', 'preferences', 'config'],
       run: openSettings
@@ -2187,7 +2094,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'clear-terminal',
       title: 'Clear Terminal',
       description: 'Clear the active terminal viewport',
-      icon: '\u2421',
       shortcut: 'Cmd/Ctrl+K',
       keywords: ['clear', 'terminal'],
       run: clearActiveTerminal
@@ -2196,7 +2102,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'theme-cycle',
       title: 'Cycle Theme',
       description: 'Switch to the next available theme',
-      icon: '\u25d0',
       keywords: ['theme', 'appearance', 'style'],
       run: () => void cycleTheme()
     },
@@ -2204,7 +2109,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'git-refresh',
       title: 'Refresh Git Status',
       description: 'Refresh branch and dirty state for active tab',
-      icon: '\u2387',
       keywords: ['git', 'branch', 'dirty'],
       run: () => void refreshActiveGitStatus(true)
     },
@@ -2212,7 +2116,6 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'copy-cwd',
       title: 'Copy Working Directory',
       description: 'Copy current tab path to clipboard',
-      icon: '\u2398',
       keywords: ['copy', 'path', 'cwd'],
       run: copyActiveCwdToClipboard
     }
@@ -2621,26 +2524,6 @@ function bindUI(): void {
       return;
     }
     openSearch();
-  });
-
-  ui.quickPalette.addEventListener('click', () => {
-    openCommandPalette();
-  });
-
-  ui.quickSearch.addEventListener('click', () => {
-    openSearch();
-  });
-
-  ui.quickSettings.addEventListener('click', () => {
-    openSettings();
-  });
-
-  ui.quickToast.addEventListener('click', () => {
-    toasts.show('This is a sample notification toast.', 'info');
-  });
-
-  ui.quickNewTab.addEventListener('click', () => {
-    void createTab();
   });
 
   ui.statusShell.addEventListener('click', () => {
