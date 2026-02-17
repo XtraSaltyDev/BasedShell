@@ -10,6 +10,10 @@ files:
   - "!node_modules/**/*.{md,ts,map}"
 mac:
   category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
   target:
     - dmg
     - zip
