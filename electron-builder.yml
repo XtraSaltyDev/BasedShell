@@ -1,5 +1,6 @@
 appId: com.basedshell.app
 productName: BasedShell
+generateUpdatesFilesForAllChannels: true
 directories:
   output: release
   buildResources: build
@@ -14,7 +15,14 @@ mac:
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
+  artifactName: "${productName}-${version}-${arch}.${ext}"
   target:
     - dmg
     - zip
   darkModeSupport: true
+publish:
+  provider: github
+  owner: XtraSaltyDev
+  repo: BasedShell
+  releaseType: release
+  channel: latest
