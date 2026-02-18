@@ -1,6 +1,6 @@
 {
   "name": "basedshell",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A modern terminal emulator with glassmorphic UI",
   "main": "dist/main/main.js",
   "scripts": {
