@@ -128,6 +128,7 @@ jobs:
         shell: bash
         run: |
           if [[ "$SIGNING_MODE" == "unsigned" ]]; then
+            unset CSC_LINK CSC_KEY_PASSWORD CSC_NAME APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
             CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --config electron-builder.yml --publish never
           else
             npx electron-builder --mac --config electron-builder.yml --publish never
@@ -138,6 +139,7 @@ jobs:
         shell: bash
         run: |
           if [[ "$SIGNING_MODE" == "unsigned" ]]; then
+            unset CSC_LINK CSC_KEY_PASSWORD CSC_NAME APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
             if [[ "$CHANNEL" == "latest" ]]; then
               CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --config electron-builder.yml --publish always
             else
