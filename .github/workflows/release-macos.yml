@@ -37,11 +37,6 @@ jobs:
     timeout-minutes: 60
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      CSC_LINK: ${{ secrets.CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
     steps:
       - name: Checkout
@@ -95,16 +90,18 @@ jobs:
               echo "RELEASE_TYPE=prerelease" >> "$GITHUB_ENV"
             fi
           fi
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Validate release secrets
-        if: env.PUBLISH == 'true'
+        if: env.PUBLISH == 'true' && env.SIGNING_MODE == 'signed'
         shell: bash
         run: |
-          required=(GH_TOKEN)
-          if [[ "$SIGNING_MODE" == "signed" ]]; then
-            required+=(CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID)
-          fi
-
+          required=(GH_TOKEN CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID)
           missing=()
           for key in "${required[@]}"; do
             if [[ -z "${!key:-}" ]]; then
@@ -116,6 +113,12 @@ jobs:
             printf 'Missing required secrets: %s\n' "${missing[*]}"
             exit 1
           fi
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Typecheck
         run: npm run typecheck
@@ -123,39 +126,50 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Package only (no publish)
-        if: env.PUBLISH != 'true'
+      - name: Package only (unsigned)
+        if: env.PUBLISH != 'true' && env.SIGNING_MODE == 'unsigned'
+        run: npx electron-builder --mac --config electron-builder.yml --publish never -c.mac.identity=null
+
+      - name: Package only (signed)
+        if: env.PUBLISH != 'true' && env.SIGNING_MODE == 'signed'
+        run: npx electron-builder --mac --config electron-builder.yml --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Package and publish (unsigned)
+        if: env.PUBLISH == 'true' && env.SIGNING_MODE == 'unsigned'
         shell: bash
         run: |
-          if [[ "$SIGNING_MODE" == "unsigned" ]]; then
-            unset CSC_LINK CSC_KEY_PASSWORD CSC_NAME APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
-            CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --config electron-builder.yml --publish never
+          if [[ "$CHANNEL" == "latest" ]]; then
+            npx electron-builder --mac --config electron-builder.yml --publish always -c.mac.identity=null
           else
-            npx electron-builder --mac --config electron-builder.yml --publish never
+            npx electron-builder --mac --config electron-builder.yml --publish always \
+              -c.publish.channel="$CHANNEL" \
+              -c.publish.releaseType="$RELEASE_TYPE" \
+              -c.mac.identity=null
           fi
 
-      - name: Package and publish
-        if: env.PUBLISH == 'true'
+      - name: Package and publish (signed)
+        if: env.PUBLISH == 'true' && env.SIGNING_MODE == 'signed'
         shell: bash
         run: |
-          if [[ "$SIGNING_MODE" == "unsigned" ]]; then
-            unset CSC_LINK CSC_KEY_PASSWORD CSC_NAME APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
-            if [[ "$CHANNEL" == "latest" ]]; then
-              CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --config electron-builder.yml --publish always
-            else
-              CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --config electron-builder.yml --publish always \
-                -c.publish.channel="$CHANNEL" \
-                -c.publish.releaseType="$RELEASE_TYPE"
-            fi
+          if [[ "$CHANNEL" == "latest" ]]; then
+            npx electron-builder --mac --config electron-builder.yml --publish always
           else
-            if [[ "$CHANNEL" == "latest" ]]; then
-              npx electron-builder --mac --config electron-builder.yml --publish always
-            else
-              npx electron-builder --mac --config electron-builder.yml --publish always \
-                -c.publish.channel="$CHANNEL" \
-                -c.publish.releaseType="$RELEASE_TYPE"
-            fi
+            npx electron-builder --mac --config electron-builder.yml --publish always \
+              -c.publish.channel="$CHANNEL" \
+              -c.publish.releaseType="$RELEASE_TYPE"
           fi
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload release artifacts
         if: always()
