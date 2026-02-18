@@ -35,6 +35,7 @@ const api = {
   getUpdateState: (): Promise<AppUpdateState> => ipcRenderer.invoke('app:get-update-state'),
   checkForUpdates: (): Promise<AppUpdateState> => ipcRenderer.invoke('app:check-for-updates'),
   installUpdate: (): Promise<boolean> => ipcRenderer.invoke('app:install-update'),
+  openReleasesPage: (): Promise<boolean> => ipcRenderer.invoke('app:open-releases-page'),
   getSystemAppearance: (): Promise<AppearanceMode> => ipcRenderer.invoke('system:get-appearance'),
   getGitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke('git:status', cwd),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),

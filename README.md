@@ -61,6 +61,22 @@ npm run package:mac
 - Maintainer release process: `RELEASING.md`
 - CI release workflow: `.github/workflows/release-macos.yml`
 - Release readiness plan: `docs/release-readiness-plan.md`
+- Latest downloads: https://github.com/XtraSaltyDev/BasedShell/releases/latest
+
+### Unsigned Community Builds (macOS)
+
+If a build is unsigned, macOS may block the first launch.
+
+1. Open `/Applications` in Finder.
+2. Right-click `BasedShell.app` and choose `Open`.
+3. Confirm `Open` in the Gatekeeper prompt.
+
+Manual update flow for unsigned builds:
+
+1. Download the latest release from the Releases page.
+2. Quit BasedShell.
+3. Replace `BasedShell.app` in `/Applications`.
+4. Reopen BasedShell.
 
 ## Key Shortcuts
 

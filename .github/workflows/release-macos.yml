@@ -19,6 +19,14 @@ on:
         options:
           - latest
           - beta
+      signing:
+        description: Signing mode
+        required: true
+        type: choice
+        default: unsigned
+        options:
+          - unsigned
+          - signed
 
 permissions:
   contents: write
@@ -51,6 +59,13 @@ jobs:
       - name: Resolve release mode
         shell: bash
         run: |
+          signing_ready=true
+          for key in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!key:-}" ]]; then
+              signing_ready=false
+            fi
+          done
+
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             echo "PUBLISH=true" >> "$GITHUB_ENV"
             if [[ "${GITHUB_REF_NAME}" == *"-"* ]]; then
@@ -60,6 +75,12 @@ jobs:
               echo "CHANNEL=latest" >> "$GITHUB_ENV"
               echo "RELEASE_TYPE=release" >> "$GITHUB_ENV"
             fi
+
+            if [[ "$signing_ready" == "true" ]]; then
+              echo "SIGNING_MODE=signed" >> "$GITHUB_ENV"
+            else
+              echo "SIGNING_MODE=unsigned" >> "$GITHUB_ENV"
+            fi
           else
             if [[ "${{ inputs.publish }}" == "true" ]]; then
               echo "PUBLISH=true" >> "$GITHUB_ENV"
@@ -67,6 +88,7 @@ jobs:
               echo "PUBLISH=false" >> "$GITHUB_ENV"
             fi
             echo "CHANNEL=${{ inputs.channel }}" >> "$GITHUB_ENV"
+            echo "SIGNING_MODE=${{ inputs.signing }}" >> "$GITHUB_ENV"
             if [[ "${{ inputs.channel }}" == "latest" ]]; then
               echo "RELEASE_TYPE=release" >> "$GITHUB_ENV"
             else
@@ -78,7 +100,11 @@ jobs:
         if: env.PUBLISH == 'true'
         shell: bash
         run: |
-          required=(GH_TOKEN CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID)
+          required=(GH_TOKEN)
+          if [[ "$SIGNING_MODE" == "signed" ]]; then
+            required+=(CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID)
+          fi
+
           missing=()
           for key in "${required[@]}"; do
             if [[ -z "${!key:-}" ]]; then
@@ -99,18 +125,34 @@ jobs:
 
       - name: Package only (no publish)
         if: env.PUBLISH != 'true'
-        run: npx electron-builder --mac --config electron-builder.yml --publish never
+        shell: bash
+        run: |
+          if [[ "$SIGNING_MODE" == "unsigned" ]]; then
+            CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --config electron-builder.yml --publish never
+          else
+            npx electron-builder --mac --config electron-builder.yml --publish never
+          fi
 
       - name: Package and publish
         if: env.PUBLISH == 'true'
         shell: bash
         run: |
-          if [[ "$CHANNEL" == "latest" ]]; then
-            npx electron-builder --mac --config electron-builder.yml --publish always
+          if [[ "$SIGNING_MODE" == "unsigned" ]]; then
+            if [[ "$CHANNEL" == "latest" ]]; then
+              CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --config electron-builder.yml --publish always
+            else
+              CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac --config electron-builder.yml --publish always \
+                -c.publish.channel="$CHANNEL" \
+                -c.publish.releaseType="$RELEASE_TYPE"
+            fi
           else
-            npx electron-builder --mac --config electron-builder.yml --publish always \
-              -c.publish.channel="$CHANNEL" \
-              -c.publish.releaseType="$RELEASE_TYPE"
+            if [[ "$CHANNEL" == "latest" ]]; then
+              npx electron-builder --mac --config electron-builder.yml --publish always
+            else
+              npx electron-builder --mac --config electron-builder.yml --publish always \
+                -c.publish.channel="$CHANNEL" \
+                -c.publish.releaseType="$RELEASE_TYPE"
+            fi
           fi
 
       - name: Upload release artifacts

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import type {
   AppUpdateState,
   AppearanceMode,
@@ -28,6 +28,7 @@ let settingsService: SettingsService | null = null;
 let windowStateStore: JsonStore<WindowState> | null = null;
 let updateService: UpdateService | null = null;
 const execFileAsync = promisify(execFile);
+const RELEASES_URL = 'https://github.com/XtraSaltyDev/BasedShell/releases/latest';
 
 function getWindowStateStore(): JsonStore<WindowState> {
   if (!windowStateStore) {
@@ -228,6 +229,14 @@ function registerIpcHandlers(): void {
     }
 
     return updateService.installUpdateAndRestart();
+  });
+  ipcMain.handle('app:open-releases-page', async () => {
+    try {
+      await shell.openExternal(RELEASES_URL);
+      return true;
+    } catch {
+      return false;
+    }
   });
   ipcMain.handle('system:get-appearance', () => getSystemAppearance());
   ipcMain.handle('git:status', (_, cwd: string) => resolveGitStatus(cwd));

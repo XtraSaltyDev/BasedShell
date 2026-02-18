@@ -181,6 +181,7 @@ let manualUpdateCheckPending = false;
 const ratioPersistTimers = new Map<SplitDirection, ReturnType<typeof setTimeout>>();
 const MAX_SPLIT_DEPTH = 2;
 const RESIZE_STEP = 0.03;
+const RELEASES_URL = 'https://github.com/XtraSaltyDev/BasedShell/releases/latest';
 
 function assertDom<T>(value: T | null, id: string): T {
   if (!value) {
@@ -834,6 +835,12 @@ function onUpdateStateChanged(next: AppUpdateState): void {
     return;
   }
 
+  if (next.status === 'unsupported' && manualUpdateCheckPending) {
+    manualUpdateCheckPending = false;
+    toasts.show('Auto-update is unavailable in this build. Use “Open Latest Release Downloads”.', 'info');
+    return;
+  }
+
   if (!previous) {
     return;
   }
@@ -891,7 +898,10 @@ async function checkForUpdates(manual = true): Promise<void> {
 
     if (next.status === 'unsupported') {
       manualUpdateCheckPending = false;
-      toasts.show(next.message ?? 'Updates are unavailable in this build.', 'info');
+      toasts.show(
+        next.message ?? 'Auto-update is unavailable in this build. Use manual release downloads.',
+        'info'
+      );
       return;
     }
 
@@ -908,6 +918,11 @@ async function checkForUpdates(manual = true): Promise<void> {
 }
 
 async function installDownloadedUpdate(): Promise<void> {
+  if (updateState?.status === 'unsupported') {
+    await openReleaseDownloads();
+    return;
+  }
+
   try {
     const started = await window.terminalAPI.installUpdate();
     if (!started) {
@@ -918,6 +933,20 @@ async function installDownloadedUpdate(): Promise<void> {
     toasts.show('Restarting to install update...', 'info');
   } catch {
     toasts.show('Unable to install downloaded update.', 'error', 0);
+  }
+}
+
+async function openReleaseDownloads(): Promise<void> {
+  try {
+    const opened = await window.terminalAPI.openReleasesPage();
+    if (!opened) {
+      toasts.show(`Unable to open releases page. URL: ${RELEASES_URL}`, 'error', 0);
+      return;
+    }
+
+    toasts.show('Opened latest release downloads.', 'success');
+  } catch {
+    toasts.show(`Unable to open releases page. URL: ${RELEASES_URL}`, 'error', 0);
   }
 }
 
@@ -2302,18 +2331,35 @@ function commandPaletteActions(): CommandPaletteAction[] {
       id: 'check-for-updates',
       title: 'Check for Updates',
       description: updateState
-        ? `Current version ${updateState.currentVersion}`
+        ? updateState.status === 'unsupported'
+          ? `Manual-update build · current version ${updateState.currentVersion}`
+          : `Current version ${updateState.currentVersion}`
         : 'Check if a newer BasedShell release is available',
       icon: '\u21bb',
       keywords: ['update', 'release', 'version'],
       run: () => void checkForUpdates(true)
     },
     {
+      id: 'open-release-downloads',
+      title: 'Open Latest Release Downloads',
+      description: 'Open GitHub Releases for manual install/update',
+      icon: '\u21d7',
+      keywords: ['update', 'download', 'release', 'github'],
+      run: () => void openReleaseDownloads()
+    },
+    {
       id: 'install-update',
-      title: updateState?.status === 'downloaded' ? 'Restart to Apply Update' : 'Install Downloaded Update',
+      title:
+        updateState?.status === 'downloaded'
+          ? 'Restart to Apply Update'
+          : updateState?.status === 'unsupported'
+            ? 'Install Update Manually'
+            : 'Install Downloaded Update',
       description:
         updateState?.status === 'downloaded'
           ? `Install${updateState.nextVersion ? ` ${updateState.nextVersion}` : ''} and restart BasedShell`
+          : updateState?.status === 'unsupported'
+            ? 'Open release downloads page to update manually'
           : 'No downloaded update is currently ready',
       icon: '\u2b73',
       keywords: ['update', 'restart', 'install'],

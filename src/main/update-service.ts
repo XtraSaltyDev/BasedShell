@@ -1,6 +1,16 @@
 import { app } from 'electron';
 import type { AppUpdateState } from '../shared/types';
 
+const UNSUPPORTED_UPDATE_ERROR_MARKERS = [
+  'code signature',
+  'not signed',
+  'not a signed app',
+  'cannot update while running',
+  'dev update config',
+  'cannot check for updates',
+  'sparkle'
+];
+
 interface UpdateInfoLike {
   version?: unknown;
 }
@@ -70,6 +80,15 @@ function unsupportedState(message: string): AppUpdateState {
   };
 }
 
+function isUnsupportedUpdateError(error: unknown): boolean {
+  const message = errorMessage(error).toLowerCase();
+  return UNSUPPORTED_UPDATE_ERROR_MARKERS.some((marker) => message.includes(marker));
+}
+
+function manualDownloadMessage(): string {
+  return 'Automatic updates are unavailable for this build. Download the latest release manually.';
+}
+
 export class UpdateService {
   private readonly onStateChange: (state: AppUpdateState) => void;
   private readonly updater: UpdaterLike | null;
@@ -98,13 +117,13 @@ export class UpdateService {
 
   async checkForUpdates(manual = true): Promise<AppUpdateState> {
     if (!app.isPackaged) {
-      this.state = unsupportedState('Updates are available in packaged builds only.');
+      this.state = unsupportedState(manualDownloadMessage());
       this.emit();
       return this.getState();
     }
 
     if (!this.updater) {
-      this.state = unsupportedState('Update engine is not available in this build.');
+      this.state = unsupportedState(manualDownloadMessage());
       this.emit();
       return this.getState();
     }
@@ -125,11 +144,15 @@ export class UpdateService {
     try {
       await Promise.resolve(this.updater.checkForUpdates());
     } catch (error) {
-      this.state = {
-        ...this.state,
-        status: 'error',
-        message: `Update check failed: ${errorMessage(error)}`
-      };
+      if (isUnsupportedUpdateError(error)) {
+        this.state = unsupportedState(manualDownloadMessage());
+      } else {
+        this.state = {
+          ...this.state,
+          status: 'error',
+          message: `Update check failed: ${errorMessage(error)}`
+        };
+      }
       this.emit();
     }
 
@@ -231,11 +254,15 @@ export class UpdateService {
     });
 
     updater.on('error', (error: unknown) => {
-      this.state = {
-        ...this.state,
-        status: 'error',
-        message: `Updater error: ${errorMessage(error)}`
-      };
+      if (isUnsupportedUpdateError(error)) {
+        this.state = unsupportedState(manualDownloadMessage());
+      } else {
+        this.state = {
+          ...this.state,
+          status: 'error',
+          message: `Updater error: ${errorMessage(error)}`
+        };
+      }
       this.emit();
     });
   }

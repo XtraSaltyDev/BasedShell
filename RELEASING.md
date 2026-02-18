@@ -22,6 +22,8 @@ This runbook defines the production release process for macOS builds.
    - `owner: XtraSaltyDev`
    - `repo: BasedShell`
 
+For unsigned community releases, Apple Developer setup is optional. Signed releases require all Apple/certificate secrets.
+
 ## Pre-Release Checks
 
 1. Sync dependencies and lockfile:
@@ -56,8 +58,10 @@ You can run the same workflow manually from GitHub Actions.
 - Inputs:
   - `publish`: `true` or `false`
   - `channel`: `latest` or `beta`
+  - `signing`: `unsigned` or `signed`
 
 Use `publish=false` for dry-run packaging without release publishing.
+Use `signing=unsigned` for releases that do not require Apple signing/notarization.
 
 ## Post-Release Validation
 
@@ -80,5 +84,8 @@ Validate notarization and launch behavior on a clean machine:
 
 ## Notes
 
+- `release-macos.yml` supports both signed and unsigned releases.
+- Unsigned mode uses `CSC_IDENTITY_AUTO_DISCOVERY=false` to force non-signed packaging.
+- For signed mode, missing Apple/certificate secrets will fail validation.
 - `release-macos.yml` currently uses `npm install` (not `npm ci`) to avoid lockfile drift failures until lockfile is consistently committed.
 - Keep secrets only in GitHub Actions secrets; never store them in repo files.

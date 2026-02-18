@@ -22,6 +22,7 @@ interface TerminalAPI {
   getUpdateState: () => Promise<AppUpdateState>;
   checkForUpdates: () => Promise<AppUpdateState>;
   installUpdate: () => Promise<boolean>;
+  openReleasesPage: () => Promise<boolean>;
   getSystemAppearance: () => Promise<AppearanceMode>;
   getGitStatus: (cwd: string) => Promise<GitStatus | null>;
   getSettings: () => Promise<AppSettings>;
