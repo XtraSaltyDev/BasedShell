@@ -2323,7 +2323,7 @@ function commandPaletteActions(): CommandPaletteAction[] {
       title: 'Clear Terminal',
       description: 'Clear the active terminal viewport',
       icon: '\u2421',
-      shortcut: 'Cmd/Ctrl+K',
+      shortcut: 'Cmd/Ctrl+Shift+K',
       keywords: ['clear', 'terminal'],
       run: clearActiveTerminal
     },
@@ -2468,7 +2468,7 @@ function bindMenuActions(): void {
         clearActiveTerminal();
         break;
       case 'command-palette':
-        openCommandPalette();
+        commandPalette?.toggle();
         break;
       case 'check-for-updates':
         void checkForUpdates(true);
@@ -2673,6 +2673,12 @@ function bindKeyboardShortcuts(): void {
       return;
     }
 
+    if (isMod && !event.shiftKey && keyLower === 'k') {
+      event.preventDefault();
+      openCommandPalette();
+      return;
+    }
+
     if (isMod && event.key === 't') {
       event.preventDefault();
       void createTab();
@@ -2718,7 +2724,7 @@ function bindKeyboardShortcuts(): void {
       return;
     }
 
-    if (isMod && keyLower === 'k') {
+    if (isMod && event.shiftKey && keyLower === 'k') {
       event.preventDefault();
       clearActiveTerminal();
       return;

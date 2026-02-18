@@ -90,9 +90,9 @@ Manual update flow for unsigned builds:
 - `Cmd/Ctrl+T`: New tab
 - `Cmd/Ctrl+W`: Close active tab
 - `Cmd/Ctrl+F`: Find in terminal
-- `Cmd/Ctrl+Shift+P`: Command palette
+- `Cmd/Ctrl+K`: Command palette
 - `Cmd/Ctrl+,`: Open settings
-- `Cmd/Ctrl+K`: Clear terminal
+- `Cmd/Ctrl+Shift+K`: Clear terminal
 - `Cmd/Ctrl+Alt+D`: Split vertical
 - `Cmd/Ctrl+Alt+Shift+D`: Split horizontal
 - `Cmd/Ctrl+Alt+Arrow`: Focus split pane

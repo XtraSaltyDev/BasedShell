@@ -90,7 +90,7 @@ export function createAppMenu(onOpenSettings?: () => void): Menu {
       },
       {
         label: 'Clear Terminal',
-        accelerator: 'CmdOrCtrl+K',
+        accelerator: 'CmdOrCtrl+Shift+K',
         click: () => dispatch('clear-terminal')
       }
     ]
@@ -101,7 +101,7 @@ export function createAppMenu(onOpenSettings?: () => void): Menu {
     submenu: [
       {
         label: 'Command Palette',
-        accelerator: 'CmdOrCtrl+Shift+P',
+        accelerator: 'CmdOrCtrl+K',
         click: () => dispatch('command-palette')
       },
       separator,

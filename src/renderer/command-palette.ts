@@ -464,7 +464,8 @@ export function createCommandPalette(options: CommandPaletteOptions): CommandPal
         return false;
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
+      const keyLower = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && (keyLower === 'k' || (event.shiftKey && keyLower === 'p'))) {
         event.preventDefault();
         close();
         return true;
