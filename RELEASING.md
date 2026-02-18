@@ -68,13 +68,18 @@ Use `signing=unsigned` for releases that do not require Apple signing/notarizati
 Validate notarization and launch behavior on a clean machine:
 
 1. Install the generated `.dmg`.
-2. Verify Gatekeeper acceptance:
+2. For unsigned builds, clear quarantine before first launch if needed:
+   - `sudo xattr -dr com.apple.quarantine /Applications/BasedShell.app`
+   - `open /Applications/BasedShell.app`
+3. Verify Gatekeeper acceptance:
    - `spctl -a -vv /Applications/BasedShell.app`
-3. Verify notarization staple:
+4. Verify notarization staple:
    - `xcrun stapler validate /Applications/BasedShell.app`
-4. Launch app and smoke check:
+5. Launch app and smoke check:
    - Open tab, split pane, open settings, switch theme, run command.
-5. Check in-app update signal on previous release build.
+6. Check in-app update signal on previous release build.
+
+For unsigned builds, `spctl` and `stapler` checks are expected to fail trust/notarization and should be treated as informational.
 
 ## Rollback / Hotfix
 

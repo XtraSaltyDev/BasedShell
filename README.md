@@ -71,6 +71,13 @@ If a build is unsigned, macOS may block the first launch.
 2. Right-click `BasedShell.app` and choose `Open`.
 3. Confirm `Open` in the Gatekeeper prompt.
 
+If macOS still reports the app as damaged or broken, run:
+
+```bash
+sudo xattr -dr com.apple.quarantine /Applications/BasedShell.app
+open /Applications/BasedShell.app
+```
+
 Manual update flow for unsigned builds:
 
 1. Download the latest release from the Releases page.
