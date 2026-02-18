@@ -56,6 +56,12 @@ Build distributables:
 npm run package:mac
 ```
 
+## Releases and Updates
+
+- Maintainer release process: `RELEASING.md`
+- CI release workflow: `.github/workflows/release-macos.yml`
+- Release readiness plan: `docs/release-readiness-plan.md`
+
 ## Key Shortcuts
 
 - `Cmd/Ctrl+T`: New tab
