@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  AppUpdateState,
   AppSettings,
   AppearanceMode,
   CreateSessionRequest,
@@ -31,6 +32,9 @@ function subscribe<T>(channel: string, callback: (event: T) => void): () => void
 const api = {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
   getHomeDirectory: (): Promise<string> => ipcRenderer.invoke('app:get-home-directory'),
+  getUpdateState: (): Promise<AppUpdateState> => ipcRenderer.invoke('app:get-update-state'),
+  checkForUpdates: (): Promise<AppUpdateState> => ipcRenderer.invoke('app:check-for-updates'),
+  installUpdate: (): Promise<boolean> => ipcRenderer.invoke('app:install-update'),
   getSystemAppearance: (): Promise<AppearanceMode> => ipcRenderer.invoke('system:get-appearance'),
   getGitStatus: (cwd: string): Promise<GitStatus | null> => ipcRenderer.invoke('git:status', cwd),
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
@@ -45,6 +49,8 @@ const api = {
   onSessionContext: (callback: (event: SessionContextEvent) => void): (() => void) =>
     subscribe('terminal:context', callback),
   onMenuAction: (callback: (action: MenuAction) => void): (() => void) => subscribe('menu:action', callback),
+  onAppUpdateState: (callback: (event: AppUpdateState) => void): (() => void) =>
+    subscribe('app:update-state', callback),
   onSettingsChanged: (callback: (event: SettingsChangedEvent) => void): (() => void) =>
     subscribe('settings:changed', callback),
   onSystemAppearanceChanged: (callback: (event: SystemAppearanceEvent) => void): (() => void) =>

@@ -4,6 +4,7 @@ import { SearchAddon, type ISearchOptions } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import type {
+  AppUpdateState,
   AppSettings,
   AppearanceMode,
   CursorStyle,
@@ -174,6 +175,9 @@ const gitStatusByCwd = new Map<string, GitStatusSnapshot>();
 const pendingGitRequests = new Set<string>();
 let gitPollTimer: ReturnType<typeof setInterval> | undefined;
 let lastCommandContext: CommandContext | null = null;
+let updateState: AppUpdateState | null = null;
+let updateDownloadToastBucket = -1;
+let manualUpdateCheckPending = false;
 const ratioPersistTimers = new Map<SplitDirection, ReturnType<typeof setTimeout>>();
 const MAX_SPLIT_DEPTH = 2;
 const RESIZE_STEP = 0.03;
@@ -812,6 +816,108 @@ async function cycleTheme(): Promise<void> {
     toasts.show(`Theme: ${nextTheme === 'system' ? `System (${resolvedTheme.themeName})` : resolvedTheme.themeName}`, 'success');
   } catch {
     toasts.show('Failed to switch theme.', 'error', 0);
+  }
+}
+
+function onUpdateStateChanged(next: AppUpdateState): void {
+  const previous = updateState;
+  updateState = next;
+  syncCommandPaletteActions();
+
+  if (next.status === 'checking') {
+    updateDownloadToastBucket = -1;
+  }
+
+  if (next.status === 'not-available' && manualUpdateCheckPending) {
+    manualUpdateCheckPending = false;
+    toasts.show(`BasedShell ${next.currentVersion} is up to date.`, 'success');
+    return;
+  }
+
+  if (!previous) {
+    return;
+  }
+
+  if (next.status === 'available' && previous.status !== 'available') {
+    manualUpdateCheckPending = false;
+    const version = next.nextVersion ? ` ${next.nextVersion}` : '';
+    toasts.show(`Update${version} is available. Downloading now...`, 'info');
+    return;
+  }
+
+  if (next.status === 'downloading' && typeof next.progress === 'number') {
+    const bucket = Math.floor(next.progress / 25);
+    if (bucket > updateDownloadToastBucket && bucket >= 1 && bucket <= 3) {
+      updateDownloadToastBucket = bucket;
+      toasts.show(`Update download ${Math.round(next.progress)}%`, 'info');
+    }
+    return;
+  }
+
+  if (next.status === 'downloaded' && previous.status !== 'downloaded') {
+    manualUpdateCheckPending = false;
+    updateDownloadToastBucket = -1;
+    const version = next.nextVersion ? ` ${next.nextVersion}` : '';
+    toasts.show(
+      `Update${version} downloaded. Run “Restart to Apply Update” from the command palette.`,
+      'success'
+    );
+    return;
+  }
+
+  if (next.status === 'error' && next.message && next.message !== previous.message) {
+    manualUpdateCheckPending = false;
+    toasts.show(next.message, 'error', 0);
+  }
+}
+
+async function checkForUpdates(manual = true): Promise<void> {
+  if (manual) {
+    manualUpdateCheckPending = true;
+  }
+
+  try {
+    const next = await window.terminalAPI.checkForUpdates();
+    onUpdateStateChanged(next);
+
+    if (!manual) {
+      return;
+    }
+
+    if (next.status === 'checking') {
+      toasts.show('Checking for updates...', 'info');
+      return;
+    }
+
+    if (next.status === 'unsupported') {
+      manualUpdateCheckPending = false;
+      toasts.show(next.message ?? 'Updates are unavailable in this build.', 'info');
+      return;
+    }
+
+    if (next.status === 'error') {
+      manualUpdateCheckPending = false;
+      if (next.message) {
+        toasts.show(next.message, 'error', 0);
+      }
+    }
+  } catch {
+    manualUpdateCheckPending = false;
+    toasts.show('Unable to check for updates.', 'error', 0);
+  }
+}
+
+async function installDownloadedUpdate(): Promise<void> {
+  try {
+    const started = await window.terminalAPI.installUpdate();
+    if (!started) {
+      toasts.show('No downloaded update is ready yet.', 'info');
+      return;
+    }
+
+    toasts.show('Restarting to install update...', 'info');
+  } catch {
+    toasts.show('Unable to install downloaded update.', 'error', 0);
   }
 }
 
@@ -2193,6 +2299,27 @@ function commandPaletteActions(): CommandPaletteAction[] {
       run: clearActiveTerminal
     },
     {
+      id: 'check-for-updates',
+      title: 'Check for Updates',
+      description: updateState
+        ? `Current version ${updateState.currentVersion}`
+        : 'Check if a newer BasedShell release is available',
+      icon: '\u21bb',
+      keywords: ['update', 'release', 'version'],
+      run: () => void checkForUpdates(true)
+    },
+    {
+      id: 'install-update',
+      title: updateState?.status === 'downloaded' ? 'Restart to Apply Update' : 'Install Downloaded Update',
+      description:
+        updateState?.status === 'downloaded'
+          ? `Install${updateState.nextVersion ? ` ${updateState.nextVersion}` : ''} and restart BasedShell`
+          : 'No downloaded update is currently ready',
+      icon: '\u2b73',
+      keywords: ['update', 'restart', 'install'],
+      run: () => void installDownloadedUpdate()
+    },
+    {
       id: 'theme-cycle',
       title: 'Cycle Theme',
       description: 'Switch to the next available theme',
@@ -2297,6 +2424,9 @@ function bindMenuActions(): void {
       case 'command-palette':
         openCommandPalette();
         break;
+      case 'check-for-updates':
+        void checkForUpdates(true);
+        break;
       default:
         break;
     }
@@ -2377,6 +2507,12 @@ function bindSystemAppearanceEvents(): void {
     applySettingsToAllTabs();
     renderTabStrip();
     updateStatus();
+  });
+}
+
+function bindUpdateEvents(): void {
+  window.terminalAPI.onAppUpdateState((next) => {
+    onUpdateStateChanged(next);
   });
 }
 
@@ -2794,12 +2930,18 @@ async function boot(): Promise<void> {
   homeDirectory = await window.terminalAPI.getHomeDirectory();
   systemAppearance = await window.terminalAPI.getSystemAppearance();
   settings = await window.terminalAPI.getSettings();
+  try {
+    updateState = await window.terminalAPI.getUpdateState();
+  } catch {
+    updateState = null;
+  }
   applySettingsToAllTabs();
   applyStaticIcons();
   initializeCommandPalette();
   bindUI();
   bindKeyboardShortcuts();
   bindMenuActions();
+  bindUpdateEvents();
   bindSessionEvents();
   bindSettingsEvents();
   bindSystemAppearanceEvents();

@@ -1,4 +1,5 @@
 import type {
+  AppUpdateState,
   AppSettings,
   AppearanceMode,
   CreateSessionRequest,
@@ -18,6 +19,9 @@ import type {
 interface TerminalAPI {
   getVersion: () => Promise<string>;
   getHomeDirectory: () => Promise<string>;
+  getUpdateState: () => Promise<AppUpdateState>;
+  checkForUpdates: () => Promise<AppUpdateState>;
+  installUpdate: () => Promise<boolean>;
   getSystemAppearance: () => Promise<AppearanceMode>;
   getGitStatus: (cwd: string) => Promise<GitStatus | null>;
   getSettings: () => Promise<AppSettings>;
@@ -30,6 +34,7 @@ interface TerminalAPI {
   onSessionExit: (callback: (event: SessionExitEvent) => void) => () => void;
   onSessionContext: (callback: (event: SessionContextEvent) => void) => () => void;
   onMenuAction: (callback: (action: MenuAction) => void) => () => void;
+  onAppUpdateState: (callback: (event: AppUpdateState) => void) => () => void;
   onSettingsChanged: (callback: (event: SettingsChangedEvent) => void) => () => void;
   onSystemAppearanceChanged: (callback: (event: SystemAppearanceEvent) => void) => () => void;
 }

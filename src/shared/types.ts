@@ -195,6 +195,24 @@ export interface SettingsChangedEvent {
   settings: AppSettings;
 }
 
+export type AppUpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+  | 'unsupported';
+
+export interface AppUpdateState {
+  status: AppUpdateStatus;
+  currentVersion: string;
+  nextVersion: string | null;
+  progress: number | null;
+  message: string | null;
+}
+
 export interface SessionWriteRequest {
   sessionId: string;
   data: string;
@@ -214,7 +232,8 @@ export type MenuAction =
   | 'search'
   | 'settings'
   | 'clear-terminal'
-  | 'command-palette';
+  | 'command-palette'
+  | 'check-for-updates';
 
 export type SettingsPatch = Partial<
   Omit<AppSettings, 'schemaVersion' | 'profiles' | 'defaultProfileId' | 'ui'>

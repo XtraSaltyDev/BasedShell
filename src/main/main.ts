@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from 'electron';
 import type {
+  AppUpdateState,
   AppearanceMode,
   AppSettings,
   CreateSessionRequest,
@@ -19,11 +20,13 @@ import { createAppMenu } from './menu';
 import { SessionManager } from './session-manager';
 import { SettingsService } from './settings';
 import { JsonStore } from './storage';
+import { UpdateService } from './update-service';
 
 let mainWindow: BrowserWindow | null = null;
 let sessionManager: SessionManager | null = null;
 let settingsService: SettingsService | null = null;
 let windowStateStore: JsonStore<WindowState> | null = null;
+let updateService: UpdateService | null = null;
 const execFileAsync = promisify(execFile);
 
 function getWindowStateStore(): JsonStore<WindowState> {
@@ -87,6 +90,22 @@ function sendSettingsChanged(settings: AppSettings): void {
   if (mainWindow) {
     mainWindow.webContents.send('settings:changed', payload);
   }
+}
+
+function sendUpdateState(state: AppUpdateState): void {
+  if (mainWindow) {
+    mainWindow.webContents.send('app:update-state', state);
+  }
+}
+
+function fallbackUpdateState(message: string): AppUpdateState {
+  return {
+    status: 'unsupported',
+    currentVersion: app.getVersion(),
+    nextVersion: null,
+    progress: null,
+    message
+  };
 }
 
 async function resolveGitStatus(cwd: string): Promise<GitStatus | null> {
@@ -193,6 +212,23 @@ function createMainWindow(settings: AppSettings): BrowserWindow {
 function registerIpcHandlers(): void {
   ipcMain.handle('app:get-version', () => app.getVersion());
   ipcMain.handle('app:get-home-directory', () => app.getPath('home'));
+  ipcMain.handle('app:get-update-state', () => {
+    return updateService?.getState() ?? fallbackUpdateState('Update service unavailable.');
+  });
+  ipcMain.handle('app:check-for-updates', async () => {
+    if (!updateService) {
+      return fallbackUpdateState('Update service unavailable.');
+    }
+
+    return updateService.checkForUpdates(true);
+  });
+  ipcMain.handle('app:install-update', () => {
+    if (!updateService) {
+      return false;
+    }
+
+    return updateService.installUpdateAndRestart();
+  });
   ipcMain.handle('system:get-appearance', () => getSystemAppearance());
   ipcMain.handle('git:status', (_, cwd: string) => resolveGitStatus(cwd));
 
@@ -240,6 +276,10 @@ function registerIpcHandlers(): void {
 }
 
 function setupApp(): void {
+  if (!updateService) {
+    updateService = new UpdateService(sendUpdateState);
+  }
+
   settingsService = new SettingsService(app.getPath('userData'));
   mainWindow = createMainWindow(settingsService.get());
 
@@ -247,6 +287,9 @@ function setupApp(): void {
 
   const menu = createAppMenu();
   Menu.setApplicationMenu(menu);
+
+  sendUpdateState(updateService.getState());
+  updateService.scheduleStartupCheck();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -304,6 +347,10 @@ function initialize(): void {
     if (process.platform !== 'darwin') {
       app.quit();
     }
+  });
+
+  app.on('before-quit', () => {
+    updateService?.dispose();
   });
 }
 

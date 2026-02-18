@@ -138,6 +138,11 @@ export function createAppMenu(onOpenSettings?: () => void): Menu {
     role: 'help',
     submenu: [
       {
+        label: 'Check for Updates…',
+        click: () => dispatch('check-for-updates')
+      },
+      separator,
+      {
         label: 'Project Website',
         click: async () => {
           await shell.openExternal('https://xtermjs.org/');
