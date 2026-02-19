@@ -222,6 +222,7 @@
 
   --toast-bg: var(--glass-bg-heavy);
   --toast-border: var(--glass-border-strong);
+  --toast-fg: var(--color-text-primary);
 
   --surface-opacity: 0.92;
 }
