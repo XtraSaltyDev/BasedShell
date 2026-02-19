@@ -28,7 +28,7 @@ let settingsService: SettingsService | null = null;
 let windowStateStore: JsonStore<WindowState> | null = null;
 let updateService: UpdateService | null = null;
 const execFileAsync = promisify(execFile);
-const RELEASES_URL = 'https://github.com/XtraSaltyDev/BasedShell/releases/latest';
+const RELEASES_URL = 'https://github.com/XtraSaltyDev/BasedShell/releases';
 
 function getWindowStateStore(): JsonStore<WindowState> {
   if (!windowStateStore) {
@@ -159,6 +159,35 @@ async function resolveGitStatus(cwd: string): Promise<GitStatus | null> {
   }
 }
 
+async function openExternalUrl(url: string): Promise<boolean> {
+  try {
+    await shell.openExternal(url, { activate: true });
+    return true;
+  } catch {
+    // Fall through to platform opener fallback.
+  }
+
+  try {
+    if (process.platform === 'darwin') {
+      await execFileAsync('open', [url], { timeout: 3000 });
+      return true;
+    }
+
+    if (process.platform === 'win32') {
+      await execFileAsync('cmd', ['/c', 'start', '', url], {
+        timeout: 3000,
+        windowsHide: true
+      });
+      return true;
+    }
+
+    await execFileAsync('xdg-open', [url], { timeout: 3000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function createMainWindow(settings: AppSettings): BrowserWindow {
   const state = getWindowStateStore().read();
   const backgroundColor = settings.vibrancy ? '#00000000' : resolveWindowBackground(settings);
@@ -231,12 +260,7 @@ function registerIpcHandlers(): void {
     return updateService.installUpdateAndRestart();
   });
   ipcMain.handle('app:open-releases-page', async () => {
-    try {
-      await shell.openExternal(RELEASES_URL);
-      return true;
-    } catch {
-      return false;
-    }
+    return openExternalUrl(RELEASES_URL);
   });
   ipcMain.handle('system:get-appearance', () => getSystemAppearance());
   ipcMain.handle('git:status', (_, cwd: string) => resolveGitStatus(cwd));

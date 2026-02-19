@@ -181,7 +181,7 @@ let manualUpdateCheckPending = false;
 const ratioPersistTimers = new Map<SplitDirection, ReturnType<typeof setTimeout>>();
 const MAX_SPLIT_DEPTH = 2;
 const RESIZE_STEP = 0.03;
-const RELEASES_URL = 'https://github.com/XtraSaltyDev/BasedShell/releases/latest';
+const RELEASES_URL = 'https://github.com/XtraSaltyDev/BasedShell/releases';
 
 function assertDom<T>(value: T | null, id: string): T {
   if (!value) {
@@ -897,11 +897,7 @@ async function checkForUpdates(manual = true): Promise<void> {
     }
 
     if (next.status === 'unsupported') {
-      manualUpdateCheckPending = false;
-      toasts.show(
-        next.message ?? 'Auto-update is unavailable in this build. Use manual release downloads.',
-        'info'
-      );
+      // onUpdateStateChanged handles the manual unsupported toast to avoid duplicates.
       return;
     }
 
@@ -944,7 +940,7 @@ async function openReleaseDownloads(): Promise<void> {
       return;
     }
 
-    toasts.show('Opened latest release downloads.', 'success');
+    toasts.show('Opened release downloads page.', 'success');
   } catch {
     toasts.show(`Unable to open releases page. URL: ${RELEASES_URL}`, 'error', 0);
   }
@@ -1356,6 +1352,20 @@ function markPaneOutput(tab: TabState, pane: PaneState): void {
   updatePaneFocusStyles(tab);
 }
 
+function disableTerminalInputAutofill(term: Terminal, viewport: HTMLElement): void {
+  const textarea = (term.textarea ?? viewport.querySelector('textarea')) as HTMLTextAreaElement | null;
+  if (!textarea) {
+    return;
+  }
+
+  textarea.setAttribute('autocomplete', 'off');
+  textarea.setAttribute('autocorrect', 'off');
+  textarea.setAttribute('autocapitalize', 'off');
+  textarea.setAttribute('spellcheck', 'false');
+  textarea.setAttribute('name', 'basedshell-terminal-input');
+  textarea.setAttribute('inputmode', 'text');
+}
+
 async function createPaneForTab(tabId: string, cwd?: string): Promise<PaneState | null> {
   const tab = tabs.get(tabId);
   const basisPane = activePaneForTab(tab);
@@ -1391,6 +1401,7 @@ async function createPaneForTab(tabId: string, cwd?: string): Promise<PaneState 
   term.loadAddon(search);
   term.loadAddon(new WebLinksAddon());
   term.open(viewport);
+  disableTerminalInputAutofill(term, viewport);
 
   const pane: PaneState = {
     paneId,
