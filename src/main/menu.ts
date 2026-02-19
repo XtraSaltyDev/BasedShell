@@ -141,6 +141,10 @@ export function createAppMenu(onOpenSettings?: () => void): Menu {
         label: 'Check for Updates…',
         click: () => dispatch('check-for-updates')
       },
+      {
+        label: 'Open Latest Release Downloads',
+        click: () => dispatch('open-release-downloads')
+      },
       separator,
       {
         label: 'Project Website',

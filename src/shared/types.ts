@@ -233,7 +233,8 @@ export type MenuAction =
   | 'settings'
   | 'clear-terminal'
   | 'command-palette'
-  | 'check-for-updates';
+  | 'check-for-updates'
+  | 'open-release-downloads';
 
 export type SettingsPatch = Partial<
   Omit<AppSettings, 'schemaVersion' | 'profiles' | 'defaultProfileId' | 'ui'>

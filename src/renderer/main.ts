@@ -2484,6 +2484,9 @@ function bindMenuActions(): void {
       case 'check-for-updates':
         void checkForUpdates(true);
         break;
+      case 'open-release-downloads':
+        void openReleaseDownloads();
+        break;
       default:
         break;
     }
