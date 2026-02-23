@@ -2616,14 +2616,15 @@ function bindKeyboardShortcuts(): void {
 
     const isMod = event.metaKey || event.ctrlKey;
     const keyLower = event.key.toLowerCase();
+    const isSplitKey = event.code === 'KeyD' || keyLower === 'd';
 
-    if (isMod && event.altKey && !event.shiftKey && keyLower === 'd') {
+    if (isMod && event.altKey && !event.shiftKey && isSplitKey) {
       event.preventDefault();
       void splitActivePaneVertical();
       return;
     }
 
-    if (isMod && event.altKey && event.shiftKey && keyLower === 'd') {
+    if (isMod && event.altKey && event.shiftKey && isSplitKey) {
       event.preventDefault();
       void splitActivePaneHorizontal();
       return;
